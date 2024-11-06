@@ -18,7 +18,7 @@ train:
   seed: 1
   torch_deterministic: True
   device: cuda
-  total_timesteps: 10_000_000
+  total_timesteps: 100_000
   learning_rate: 1.5e-4
   anneal_lr: True
   gamma: 0.99
@@ -75,7 +75,7 @@ sweep:
 env:
   num_agents: 128
   num_npcs: 256
-  max_episode_length: 1024
+  max_episode_length: 128
   maps_path: 'maps/train/'
   map_size: 128
   num_maps: 256
@@ -157,3 +157,13 @@ hybrid:
     custom_bonus_scale: 0.1
     disable_give: True
     donot_attack_dangerous_npc: True
+
+random_agent:
+  env:
+    maps_path: 'maps/train_yaofeng/'
+    num_maps: 64
+    resilient_population: 0
+  train:
+    update_epochs: 1
+  recurrent:
+    num_layers: 0
