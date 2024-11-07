@@ -15,7 +15,7 @@ class Recurrent(pufferlib.models.RecurrentWrapper):
 class Policy(pufferlib.models.Policy):
     def __init__(self, env, input_size=256, hidden_size=256, task_size=2048):
         '''Pure PyTorch base policy
-    
+
         This spec allows PufferLib to repackage your policy
         for compatibility with RL frameworks
 
@@ -36,7 +36,7 @@ class Policy(pufferlib.models.Policy):
         the output of encode_observations)
         '''
         super().__init__(env)
-        
+
         self.encoder = nn.Linear(np.prod(self.observation_space.shape), hidden_size)
 
         if self.is_multidiscrete:
@@ -56,7 +56,7 @@ class Policy(pufferlib.models.Policy):
 
         observations = pufferlib.emulation.unpack_batched_obs(
             env_outputs, self.unflatten_context)
- 
+
         Args:
             flat_observations: A tensor of shape (batch, ..., obs_size)
 
@@ -64,9 +64,9 @@ class Policy(pufferlib.models.Policy):
             hidden: Tensor of (batch, ..., hidden_size)
             lookup: Tensor of (batch, ...) that can be used to return additional embeddings
         '''
-        hidden = flat_observations.reshape(flat_observations.shape[0], -1).float()
-        hidden = torch.relu(self.encoder(hidden))
-        #return torch.from_numpy(np.random.uniform(0, 1, size=hidden.shape)), None
+        reshaped = flat_observations.reshape(flat_observations.shape[0], -1).float()
+        hidden = self.encoder(reshaped)
+
         return hidden, None
 
 
@@ -86,14 +86,10 @@ class Policy(pufferlib.models.Policy):
         It should be of shape (batch, ..., sum(action_space.nvec))
         '''
         value = self.value_head(flat_hidden)
-        #value = torch.rand((1,)).cuda() #torch.from_numpy(np.random.uniform(0, 1, size=(1,)))
 
         if self.is_multidiscrete:
             actions = [decoder(flat_hidden) for decoder in self.decoders]
-            #actions = [torch.rand((*flat_hidden.shape[:-1], n)).cuda() for n in self.action_space.nvec]
             return actions, value
 
         action = self.decoder(flat_hidden)
-        #action = torch.rand((self.action_space.n,)).cuda()
-        
         return action, value
