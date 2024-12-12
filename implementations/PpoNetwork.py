@@ -18,12 +18,15 @@ class PPONetwork(nn.Module):
                                   13,  # Use
                                   13]  # Destroy 
         
-        self.actor_networks = nn.ModuleList([
+        self.network = nn.Sequential(
+            nn.Linear(input_dim, 64),
+            nn.Tanh(),
+            nn.Linear(64, 64),
+            nn.Tanh()
+        )
+        
+        self.action_heads = nn.ModuleList([
             nn.Sequential(
-                nn.Linear(input_dim, 64),
-                nn.Tanh(),
-                nn.Linear(64, 64),
-                nn.Tanh(),
                 nn.Linear(64, dim),
                 nn.Softmax(dim=-1)
             ) for dim in action_dims
@@ -49,7 +52,8 @@ class PPONetwork(nn.Module):
             - List of action probability tensors, each of shape (batch_size, action_dim)
             - Value tensor of shape (batch_size, 1)
         """
-        action_probs = [net(x.clone()) for net in self.actor_networks]
+        hidden: Tensor = self.network(x.clone())
+        action_probs = [net(hidden.clone()) for net in self.action_heads]
         value = self.critic(x.clone())
         return action_probs, value
     

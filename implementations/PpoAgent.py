@@ -140,9 +140,8 @@ class PPOAgent:
         batch_size = 64  # Define your batch size here
 
         for _ in range(self.epochs):
-            permutation = torch.randperm(states_tensor.size(0))
             for i in range(0, states_tensor.size(0), batch_size):
-                indices = permutation[i:i + batch_size]
+                indices = range(i, min(i+batch_size, states_tensor.size(0)))
                 batch_states_tensor = states_tensor[indices]
                 batch_returns_tensor = returns_tensor[indices]
                 batch_action_tensors = [acts[indices] for acts in action_tensors]
