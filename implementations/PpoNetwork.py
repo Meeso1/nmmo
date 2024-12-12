@@ -1,25 +1,22 @@
-from dataclasses import dataclass
-import numpy as np
-import torch
 from torch import Tensor
 from torch import nn
+from implementations.InputNetwork import InputNetwork
 
 
 class PPONetwork(nn.Module):
     def __init__(self) -> None:
-        # Inputs:
-        
         super(PPONetwork, self).__init__()
-        
-        input_dim = 4104 # Size with no market/comm/giving
+
         action_dims: list[int] = [5,   # Move
                                   3,   # Attack style
                                   101, # Attack target
                                   13,  # Use
                                   13]  # Destroy 
         
-        self.network = nn.Sequential(
-            nn.Linear(input_dim, 64),
+        self.input_network = InputNetwork(output_dim=128)
+        
+        self.hidden_network = nn.Sequential(
+            nn.Linear(128, 64),
             nn.Tanh(),
             nn.Linear(64, 64),
             nn.Tanh()
@@ -32,28 +29,34 @@ class PPONetwork(nn.Module):
             ) for dim in action_dims
         ])
         
+        self.critic_input = InputNetwork(output_dim=64)
         self.critic = nn.Sequential(
-            nn.Linear(input_dim, 64),
+            nn.Linear(64, 64),
             nn.Tanh(),
             nn.Linear(64, 64),
             nn.Tanh(),
             nn.Linear(64, 1)
         )
     
-    def forward(self, x: Tensor) -> tuple[list[Tensor], Tensor]:
+    def forward(self, id_and_tick: Tensor, tile_data: Tensor, inventory_data: Tensor) -> tuple[list[Tensor], Tensor]:
         """
         Forward pass through the network.
         
         Args:
-            x: Input state tensor of shape (batch_size, input_dim)
+            id_and_tick: Tensor of shape (batch_size, 2)
+            tile_data: Tensor of shape (batch_size, 255, 3)
+            inventory_data: Tensor of shape (batch_size, 12, 18)
         
         Returns:
             Tuple containing:
             - List of action probability tensors, each of shape (batch_size, action_dim)
             - Value tensor of shape (batch_size, 1)
         """
-        hidden: Tensor = self.network(x.clone())
+        
+        x = self.input_network(id_and_tick.clone(), tile_data.clone(), inventory_data.clone())
+        hidden = self.hidden_network(x)
         action_probs = [net(hidden.clone()) for net in self.action_heads]
-        value = self.critic(x.clone())
+        
+        x_critic = self.critic_input(id_and_tick.clone(), tile_data.clone(), inventory_data.clone())
+        value = self.critic(x_critic)
         return action_probs, value
-    

@@ -44,11 +44,13 @@ class PPOAgent:
         learning_rate: float = 3e-4,
         gamma: float = 0.99,
         epsilon: float = 0.2,
-        epochs: int = 10
+        epochs: int = 10,
+        batch_size: int = 64
     ) -> None:
         self.gamma = gamma
         self.epsilon = epsilon
         self.epochs = epochs
+        self.batch_size = batch_size
         self.action_types: list[str] = ["Move",
                                         "Attack style",
                                         "Attack target",
@@ -71,7 +73,8 @@ class PPOAgent:
         actions = {}
         
         for agent_id, observations in states.items():
-            action_probs, _ = self.network(*self._observations_to_network_inputs(observations))
+            inputs = self._observations_to_network_inputs(observations)
+            action_probs, _ = self.network(*inputs)
             
             distributions = [torch.distributions.Categorical(probs) for probs in action_probs]
             agent_actions = [dist.sample() for dist in distributions]
@@ -84,25 +87,30 @@ class PPOAgent:
             )
         return actions
     
-    def _observations_to_network_inputs(self, obs: Observations) -> list[Tensor]:
-        return [
-            torch.tensor(
-                np.concatenate([
-                    np.array([obs.agent_id]),
-                    np.array([obs.current_tick]),
-                    obs.entities.ravel(),
-                    obs.inventory.ravel(),
-                    obs.tiles.ravel(),
-                    obs.action_targets.attack_style,
-                    obs.action_targets.attack_target,
-                    obs.action_targets.move_direction,
-                    obs.action_targets.use_inventory_item,
-                    obs.action_targets.destroy_inventory_item
-                ]),
-                dtype=torch.float32, 
-                device=self.device
-            )
-        ]
+    def _observations_to_network_inputs(self, obs: Observations) -> tuple[Tensor, Tensor, Tensor]:
+        id_and_tick = torch.tensor(
+            np.array([obs.agent_id, obs.current_tick]),
+            dtype=torch.float32,
+            device=self.device
+        ).unsqueeze(0)
+
+        tiles = torch.tensor(
+            obs.tiles,
+            dtype=torch.float32,
+            device=self.device
+        ).unsqueeze(0)
+        
+        inventory = torch.tensor(
+            np.concatenate([
+                obs.inventory,
+                obs.action_targets.use_inventory_item[:12].reshape(12, 1),
+                obs.action_targets.destroy_inventory_item[:12].reshape(12, 1)
+            ], axis=1).ravel(),
+            dtype=torch.float32,
+            device=self.device
+        ).unsqueeze(0)
+        
+        return id_and_tick, tiles, inventory
 
     def update(
         self,
@@ -131,25 +139,24 @@ class PPOAgent:
                 all_actions[type].extend([step[i] for step in actions[agent_id]])
                 all_old_log_probs[type].extend([step[i] for step in log_probs[agent_id]])
         
-        network_inputs = [self._observations_to_network_inputs(obs)[0] for obs in all_states]
-        states_tensor = torch.stack(network_inputs)
+        network_inputs = [self._observations_to_network_inputs(obs) for obs in all_states]
+        stacked_inputs = [torch.cat([inputs[i] for inputs in network_inputs], dim=0) for i in range(len(network_inputs[0]))]
+    
         returns_tensor = torch.FloatTensor(all_returns).to(self.device)
         action_tensors = [torch.LongTensor(acts).to(self.device) for acts in all_actions.values()]
         old_log_prob_tensors = [torch.stack(lps).to(self.device) for lps in all_old_log_probs.values()]
 
-        batch_size = 64  # Define your batch size here
-
         for _ in range(self.epochs):
-            for i in range(0, states_tensor.size(0), batch_size):
-                indices = range(i, min(i+batch_size, states_tensor.size(0)))
-                batch_states_tensor = states_tensor[indices]
+            for i in range(0, len(network_inputs), self.batch_size):
+                indices = range(i, min(i+self.batch_size, len(network_inputs)))
+                batch_inputs = [input[indices] for input in stacked_inputs]
                 batch_returns_tensor = returns_tensor[indices]
                 batch_action_tensors = [acts[indices] for acts in action_tensors]
                 batch_old_log_prob_tensors = [lps[indices] for lps in old_log_prob_tensors]
 
                 new_action_probs: list[Tensor]
                 values: Tensor
-                new_action_probs, values = self.network(batch_states_tensor.detach())
+                new_action_probs, values = self.network(*[input.clone() for input in batch_inputs])
                 advantages = batch_returns_tensor.detach() - values.detach()
 
                 actor_loss = 0
