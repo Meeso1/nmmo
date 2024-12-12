@@ -87,7 +87,7 @@ class PPOAgent:
             )
         return actions
     
-    def _observations_to_network_inputs(self, obs: Observations) -> tuple[Tensor, Tensor, Tensor]:
+    def _observations_to_network_inputs(self, obs: Observations) -> tuple[Tensor, Tensor, Tensor, Tensor]:
         id_and_tick = torch.tensor(
             np.array([obs.agent_id, obs.current_tick]),
             dtype=torch.float32,
@@ -109,8 +109,17 @@ class PPOAgent:
             dtype=torch.float32,
             device=self.device
         ).unsqueeze(0)
+
+        entities = torch.tensor(
+            np.concatenate([
+                obs.entities,
+                obs.action_targets.attack_target[:100].reshape(100, 1)
+            ], axis=1),
+            dtype=torch.float32,
+            device=self.device
+        ).unsqueeze(0)
         
-        return id_and_tick, tiles, inventory
+        return id_and_tick, tiles, inventory, entities
 
     def update(
         self,

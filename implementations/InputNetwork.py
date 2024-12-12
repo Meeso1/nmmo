@@ -1,6 +1,7 @@
 import torch
 from torch import Tensor
 from torch import nn
+from implementations.AttentionNetwork import AttentionNetwork
 
 
 class InputNetwork(nn.Module):
@@ -27,12 +28,20 @@ class InputNetwork(nn.Module):
             nn.ReLU()
         )
         
+        self.entities = AttentionNetwork(31 + 1, output_dim=128)
+        
         self.combined = nn.Sequential(
-            nn.Linear(16 + 64 + 64, output_dim),
+            nn.Linear(16 + 64 + 64 + 128, output_dim),
             nn.ReLU()
         )
     
-    def forward(self, id_and_tick: Tensor, tile_data: Tensor, inventory_data: Tensor) -> Tensor:
+    def forward(
+        self, 
+        id_and_tick: Tensor, 
+        tile_data: Tensor, 
+        inventory_data: Tensor, 
+        entity_data: Tensor
+        ) -> Tensor:
         """
         Forward pass through the network.
         
@@ -40,6 +49,7 @@ class InputNetwork(nn.Module):
             id_and_tick: Tensor of shape (batch_size, 2)
             tile_data: Tensor of shape (batch_size, 255, 3)
             inventory_data: Tensor of shape (batch_size, 12, 18)
+            entity_data: Tensor of shape (batch_size, 100, 31)
         
         Returns:
             Hidden tensor of shape (batch_size, output_dim)
@@ -53,7 +63,10 @@ class InputNetwork(nn.Module):
         
         x3 = self.inventory_and_masks(inventory_data)
         x3 = x3.view(-1, 64)
+        
+        x4 = self.entities(entity_data)
+        x4 = x4.view(-1, 128)
 
-        x = torch.cat((x1, x2, x3), dim=1)
+        x = torch.cat((x1, x2, x3, x4), dim=1)
         return self.combined(x)
     

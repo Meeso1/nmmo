@@ -38,7 +38,13 @@ class PPONetwork(nn.Module):
             nn.Linear(64, 1)
         )
     
-    def forward(self, id_and_tick: Tensor, tile_data: Tensor, inventory_data: Tensor) -> tuple[list[Tensor], Tensor]:
+    def forward(
+        self, 
+        id_and_tick: Tensor, 
+        tile_data: Tensor, 
+        inventory_data: Tensor, 
+        entity_data: Tensor
+        ) -> tuple[list[Tensor], Tensor]:
         """
         Forward pass through the network.
         
@@ -46,6 +52,7 @@ class PPONetwork(nn.Module):
             id_and_tick: Tensor of shape (batch_size, 2)
             tile_data: Tensor of shape (batch_size, 255, 3)
             inventory_data: Tensor of shape (batch_size, 12, 18)
+            entity_data: Tensor of shape (batch_size, 100, 32)
         
         Returns:
             Tuple containing:
@@ -53,10 +60,10 @@ class PPONetwork(nn.Module):
             - Value tensor of shape (batch_size, 1)
         """
         
-        x = self.input_network(id_and_tick.clone(), tile_data.clone(), inventory_data.clone())
+        x = self.input_network(id_and_tick.clone(), tile_data.clone(), inventory_data.clone(), entity_data.clone())
         hidden = self.hidden_network(x)
         action_probs = [net(hidden.clone()) for net in self.action_heads]
         
-        x_critic = self.critic_input(id_and_tick.clone(), tile_data.clone(), inventory_data.clone())
+        x_critic = self.critic_input(id_and_tick.clone(), tile_data.clone(), inventory_data.clone(), entity_data.clone())
         value = self.critic(x_critic)
         return action_probs, value
