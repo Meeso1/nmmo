@@ -4,6 +4,10 @@ from implementations.Observations import Observations, EntityData
 from torch import Tensor
 import numpy as np
 
+
+_max_level = 10
+
+
 def observations_to_network_inputs(obs: Observations, device: torch.device) \
     -> tuple[Tensor, Tensor, Tensor, Tensor]:
 	id_and_tick = torch.tensor(
@@ -32,10 +36,28 @@ def observations_to_network_inputs(obs: Observations, device: torch.device) \
 	).unsqueeze(0)
 
 	entities = torch.tensor(
-		np.concatenate([
-			obs.entities,
-			obs.action_targets.attack_target[:100].reshape(100, 1)
-		], axis=1),
+		np.stack([
+			obs.entities.id < 0,
+			obs.entities.id > 0,
+			obs.entities.npc_type,
+			obs.entities.damage / 100,
+			np.log(obs.entities.time_alive + 1),
+			obs.entities.freeze / 3,
+			obs.entities.item_level / _max_level,
+			np.log(obs.entities.latest_combat_tick + 1),
+			obs.entities.health / 100,
+			obs.entities.food / 100,
+			obs.entities.water / 100,
+			obs.entities.melee_level / _max_level,
+			obs.entities.range_level / _max_level,
+			obs.entities.mage_level	/ _max_level,
+			obs.entities.fishing_level / _max_level,
+			obs.entities.herbalism_level / _max_level,
+			obs.entities.prospecting_level / _max_level,
+			obs.entities.carving_level / _max_level,
+			obs.entities.alchemy_level / _max_level,
+			obs.action_targets.attack_target[:100]
+		], axis=-1),
 		dtype=torch.float32,
 		device=device
 	).unsqueeze(0)
@@ -93,23 +115,28 @@ def _get_cnn_entity_data(obs: Observations) -> np.ndarray:
                   	for i, a_id in enumerate(obs.entities.id) 
                    	if a_id != obs.agent_id and a_id != 0]
  
-	cnn_data = np.zeros((15, 15, 14))
+	cnn_data = np.zeros((15, 15, 19))
 	for entity in other_entites:
 		cnn_data[entity.row - me.row + 7, entity.col - me.col + 7, :] = np.array([
 			1 if entity.id < 0 else 0, # is NPC
 			1 if entity.id > 0 else 0, # is player
-			entity.npc_type, # TODO: one-hot encode?
+			entity.npc_type,
+			entity.damage / 100,
+			np.log(entity.time_alive + 1),
+			entity.freeze / 3,
+			entity.item_level / _max_level,
+			np.log(entity.latest_combat_tick + 1),
 			entity.health / 100,
 			entity.food / 100,
 			entity.water / 100,
-			entity.melee_level,
-			entity.range_level,
-			entity.mage_level,
-			entity.fishing_level,
-			entity.herbalism_level,
-			entity.prospecting_level,
-			entity.carving_level,
-			entity.alchemy_level
+			entity.melee_level / _max_level,
+			entity.range_level / _max_level,
+			entity.mage_level / _max_level,
+			entity.fishing_level / _max_level,
+			entity.herbalism_level / _max_level,
+			entity.prospecting_level / _max_level,
+			entity.carving_level / _max_level,
+			entity.alchemy_level / _max_level
 		])
   
 	return cnn_data

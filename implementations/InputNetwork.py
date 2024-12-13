@@ -15,7 +15,7 @@ class InputNetwork(nn.Module):
         )
         
         self.tiles = nn.Sequential(
-            nn.Conv2d(in_channels=17, out_channels=16, kernel_size=3, padding=1),  # (batch_size, 17, 15, 15) -> (batch_size, 16, 15, 15)
+            nn.Conv2d(in_channels=22, out_channels=16, kernel_size=3, padding=1),  # (batch_size, 22, 15, 15) -> (batch_size, 16, 15, 15)
             nn.ReLU(),
             nn.MaxPool2d(2),  # (batch_size, 16, 15, 15) -> (batch_size, 16, 7, 7)
             nn.Flatten(),     # (batch_size, 16, 7, 7) -> (batch_size, 784)
@@ -28,7 +28,7 @@ class InputNetwork(nn.Module):
             nn.ReLU()
         )
         
-        self.entities = AttentionNetwork(31 + 1, output_dim=128)
+        self.entities = AttentionNetwork(20, output_dim=128)
         
         self.combined = nn.Sequential(
             nn.Linear(16 + 64 + 64 + 128, output_dim),
@@ -47,9 +47,9 @@ class InputNetwork(nn.Module):
         
         Args:
             id_and_tick: Tensor of shape (batch_size, 2)
-            tile_data: Tensor of shape (batch_size, 15, 15, 17)
+            tile_data: Tensor of shape (batch_size, 15, 15, 22)
             inventory_data: Tensor of shape (batch_size, 12, 18)
-            entity_data: Tensor of shape (batch_size, 100, 31)
+            entity_data: Tensor of shape (batch_size, 100, 20)
         
         Returns:
             Hidden tensor of shape (batch_size, output_dim)
