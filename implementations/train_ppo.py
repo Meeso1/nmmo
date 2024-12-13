@@ -4,9 +4,10 @@ import numpy as np
 from torch import Tensor
 from pettingzoo import ParallelEnv
 from dataclasses import dataclass
+from nmmo.entity.entity import EntityState
 
 from implementations.PpoAgent import PPOAgent
-from implementations.Observations import Observations, ActionTargets
+from implementations.Observations import Observations, ActionTargets, EntityData
 
 
 def to_observations(obs: dict[str]) -> Observations:
@@ -16,6 +17,10 @@ def to_observations(obs: dict[str]) -> Observations:
         inventory=obs["Inventory"],
         tiles=obs["Tile"],
         entities=obs["Entity"],
+        entity_data=EntityData(
+            **{EntityState.State.attr_name_to_col[idx]: obs["Entity"][:, idx] 
+            for idx in range(obs["Entity"].shape[1])}
+        ),
         action_targets=ActionTargets(
             move_direction=obs["ActionTargets"]["Move"]["Direction"],
             attack_style=obs["ActionTargets"]["Attack"]["Style"],

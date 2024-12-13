@@ -12,17 +12,47 @@ class ActionTargets:
 
 
 @dataclass(frozen=True)
+class EntityData:
+    # All arrays: (100,) int
+    id: np.ndarray
+    npc_type: np.ndarray
+    row: np.ndarray
+    col: np.ndarray
+    damage: np.ndarray
+    time_alive: np.ndarray
+    freeze: np.ndarray
+    item_level: np.ndarray
+    attacker_id: np.ndarray
+    latest_combat_tick: np.ndarray
+    message: np.ndarray
+    gold: np.ndarray
+    health: np.ndarray
+    food: np.ndarray
+    water: np.ndarray
+    melee_level: np.ndarray
+    melee_exp: np.ndarray
+    range_level: np.ndarray
+    range_exp: np.ndarray
+    mage_level: np.ndarray
+    mage_exp: np.ndarray
+    fishing_level: np.ndarray
+    fishing_exp: np.ndarray
+    herbalism_level: np.ndarray
+    herbalism_exp: np.ndarray
+    prospecting_level: np.ndarray
+    prospecting_exp: np.ndarray
+    carving_level: np.ndarray
+    carving_exp: np.ndarray
+    alchemy_level: np.ndarray
+    alchemy_exp: np.ndarray
+
+
+@dataclass(frozen=True)
 class Observations:
     agent_id: int
     current_tick: int
     tiles: np.ndarray # 225x3 (15x15, flattened, 3 possible values, one-hot encoded)
     inventory: np.ndarray # 12x16 (12 slots, 16 possible items, one-hot encoded)
-    entities: np.ndarray # 100x31 (100 entities, ???)
-    # 0 - id
-    # 1 - ...
-    # 2 - x
-    # 3 - y
-    # ...
-    # 12-14 - health/water/food
+    entities: np.ndarray # 100x31 (100 entities, 31 features)
     action_targets: ActionTargets
     
