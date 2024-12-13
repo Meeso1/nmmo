@@ -57,7 +57,7 @@ class InputNetwork(nn.Module):
         x1 = self.id_and_tick(id_and_tick)
         x1 = x1.view(-1, 16)
         
-        x2 = tile_data.permute(0, 2, 1)
+        x2 = tile_data.permute(0, 3, 1, 2)
         x2 = self.tiles(x2)
         x2 = x2.view(-1, 64)
         
