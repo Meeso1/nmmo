@@ -14,7 +14,7 @@ def observations_to_network_inputs(obs: Observations, device: torch.device) \
 
 	tiles = torch.tensor(
 		np.concatenate([
-    		obs.tiles.reshape(-1, 15, 15, 3),
+    		obs.tiles.reshape(15, 15, 3),
 			_get_cnn_entity_data(obs)
 		], axis=2),
 		dtype=torch.float32,
