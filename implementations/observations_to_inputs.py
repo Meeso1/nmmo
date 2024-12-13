@@ -95,7 +95,7 @@ def _get_cnn_entity_data(obs: Observations) -> np.ndarray:
  
 	cnn_data = np.zeros((15, 15, 14))
 	for entity in other_entites:
-		cnn_data[entity.row - me.row + 7, entity.col - me.col + 7, :] = np.ndarray([
+		cnn_data[entity.row - me.row + 7, entity.col - me.col + 7, :] = np.array([
 			1 if entity.id < 0 else 0, # is NPC
 			1 if entity.id > 0 else 0, # is player
 			entity.npc_type, # TODO: one-hot encode?
@@ -110,5 +110,5 @@ def _get_cnn_entity_data(obs: Observations) -> np.ndarray:
 			entity.prospecting_level,
 			entity.carving_level,
 			entity.alchemy_level
-  		])
+		])
  
