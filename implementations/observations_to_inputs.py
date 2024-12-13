@@ -111,4 +111,6 @@ def _get_cnn_entity_data(obs: Observations) -> np.ndarray:
 			entity.carving_level,
 			entity.alchemy_level
 		])
+  
+	return cnn_data
  
