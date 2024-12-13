@@ -16,7 +16,7 @@ def observations_to_network_inputs(obs: Observations, device: torch.device) \
 		np.concatenate([
     		obs.tiles.reshape(-1, 15, 15, 3),
 			_get_cnn_entity_data(obs)
-		], dim=2),
+		], axis=2),
 		dtype=torch.float32,
 		device=device
 	).unsqueeze(0)
