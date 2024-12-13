@@ -6,6 +6,7 @@ from torch import Tensor
 
 from implementations.PpoNetwork import PPONetwork
 from implementations.Observations import Observations
+from implementations.observations_to_inputs import observations_to_network_inputs
 
 
 def indexes_to_action_dict(indexes: list[int]) -> dict[str, dict[str, int]]:
@@ -73,7 +74,7 @@ class PPOAgent:
         actions = {}
         
         for agent_id, observations in states.items():
-            inputs = self._observations_to_network_inputs(observations)
+            inputs = observations_to_network_inputs(observations, self.device)
             action_probs, _ = self.network(*inputs)
             
             distributions = [torch.distributions.Categorical(probs) for probs in action_probs]
@@ -86,40 +87,6 @@ class PPOAgent:
                 log_probs
             )
         return actions
-    
-    def _observations_to_network_inputs(self, obs: Observations) -> tuple[Tensor, Tensor, Tensor, Tensor]:
-        id_and_tick = torch.tensor(
-            np.array([obs.agent_id, obs.current_tick]),
-            dtype=torch.float32,
-            device=self.device
-        ).unsqueeze(0)
-
-        tiles = torch.tensor(
-            obs.tiles,
-            dtype=torch.float32,
-            device=self.device
-        ).unsqueeze(0)
-        
-        inventory = torch.tensor(
-            np.concatenate([
-                obs.inventory,
-                obs.action_targets.use_inventory_item[:12].reshape(12, 1),
-                obs.action_targets.destroy_inventory_item[:12].reshape(12, 1)
-            ], axis=1).ravel(),
-            dtype=torch.float32,
-            device=self.device
-        ).unsqueeze(0)
-
-        entities = torch.tensor(
-            np.concatenate([
-                obs.entities,
-                obs.action_targets.attack_target[:100].reshape(100, 1)
-            ], axis=1),
-            dtype=torch.float32,
-            device=self.device
-        ).unsqueeze(0)
-        
-        return id_and_tick, tiles, inventory, entities
 
     def update(
         self,
@@ -148,7 +115,7 @@ class PPOAgent:
                 all_actions[type].extend([step[i] for step in actions[agent_id]])
                 all_old_log_probs[type].extend([step[i] for step in log_probs[agent_id]])
         
-        network_inputs = [self._observations_to_network_inputs(obs) for obs in all_states]
+        network_inputs = [observations_to_network_inputs(obs, self.device) for obs in all_states]
         stacked_inputs = [torch.cat([inputs[i] for inputs in network_inputs], dim=0) for i in range(len(network_inputs[0]))]
     
         returns_tensor = torch.FloatTensor(all_returns).to(self.device)

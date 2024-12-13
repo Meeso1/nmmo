@@ -15,7 +15,7 @@ class InputNetwork(nn.Module):
         )
         
         self.tiles = nn.Sequential(
-            nn.Conv2d(in_channels=3, out_channels=16, kernel_size=3, padding=1),  # (batch_size, 3, 15, 15) -> (batch_size, 16, 15, 15)
+            nn.Conv2d(in_channels=17, out_channels=16, kernel_size=3, padding=1),  # (batch_size, 17, 15, 15) -> (batch_size, 16, 15, 15)
             nn.ReLU(),
             nn.MaxPool2d(2),  # (batch_size, 16, 15, 15) -> (batch_size, 16, 7, 7)
             nn.Flatten(),     # (batch_size, 16, 7, 7) -> (batch_size, 784)
@@ -47,7 +47,7 @@ class InputNetwork(nn.Module):
         
         Args:
             id_and_tick: Tensor of shape (batch_size, 2)
-            tile_data: Tensor of shape (batch_size, 255, 3)
+            tile_data: Tensor of shape (batch_size, 15, 15, 17)
             inventory_data: Tensor of shape (batch_size, 12, 18)
             entity_data: Tensor of shape (batch_size, 100, 31)
         
@@ -57,7 +57,7 @@ class InputNetwork(nn.Module):
         x1 = self.id_and_tick(id_and_tick)
         x1 = x1.view(-1, 16)
         
-        x2 = tile_data.permute(0, 2, 1).view(-1, 3, 15, 15)
+        x2 = tile_data.permute(0, 2, 1)
         x2 = self.tiles(x2)
         x2 = x2.view(-1, 64)
         
