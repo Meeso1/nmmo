@@ -64,8 +64,7 @@ def to_observations(obs: dict[str]) -> Observations:
         current_tick=obs["CurrentTick"],
         inventory=obs["Inventory"],
         tiles=obs["Tile"],
-        entities=obs["Entity"],
-        entity_data=EntityData(
+        entities=EntityData(
             **{feature: obs["Entity"][:, idx] 
             for feature, idx in EntityState.State.attr_name_to_col.items()}
         ),
