@@ -7,34 +7,8 @@ from dataclasses import dataclass
 from nmmo.entity.entity import EntityState
 
 from implementations.PpoAgent import PPOAgent
-from implementations.Observations import Observations, ActionTargets, EntityData
+from implementations.Observations import Observations, ActionTargets, EntityData, to_observations
 
-
-def to_observations(obs: dict[str]) -> Observations:
-    return Observations(
-        agent_id=obs["AgentId"],
-        current_tick=obs["CurrentTick"],
-        inventory=obs["Inventory"],
-        tiles=obs["Tile"],
-        entities=obs["Entity"],
-        entity_data=EntityData(
-            **{EntityState.State.attr_name_to_col[idx]: obs["Entity"][:, idx] 
-            for idx in range(obs["Entity"].shape[1])}
-        ),
-        action_targets=ActionTargets(
-            move_direction=obs["ActionTargets"]["Move"]["Direction"],
-            attack_style=obs["ActionTargets"]["Attack"]["Style"],
-            attack_target=obs["ActionTargets"]["Attack"]["Target"],
-            use_inventory_item=obs["ActionTargets"]["Use"]["InventoryItem"],
-            destroy_inventory_item=obs["ActionTargets"]["Destroy"]["InventoryItem"]
-        )
-    )
-
-
-# TODO:
-# - Try if current implementation works with multi-output PPONetwork
-# - Move many things from train_ppo to PPOAgent
-# - Try multi-input PPONetwork
 
 def train_ppo(
     env: ParallelEnv,
