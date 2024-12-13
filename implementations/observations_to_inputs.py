@@ -108,6 +108,10 @@ class SingleEntity:
 
 
 def _get_cnn_entity_data(obs: Observations) -> np.ndarray:
+	if np.all(obs.entities.id != obs.agent_id):
+		print("Agent not found in entities")
+		return np.zeros((15, 15, 19))
+    
 	me_idx = np.where(obs.entities.id == obs.agent_id)[0][0]
 	me = SingleEntity.from_entity_data(obs.entities, me_idx)
  
