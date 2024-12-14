@@ -67,6 +67,9 @@ class PPOAgent:
         self.critic_losses = []
         self.total_losses = []
 
+    def _get_distributions(self, action_probs: list[Tensor]) -> list[torch.distributions.Distribution]:
+        return [torch.distributions.Categorical(probs) for probs in action_probs]
+
     def get_actions(
         self,
         states: dict[int, Observations]
@@ -76,8 +79,7 @@ class PPOAgent:
         for agent_id, observations in states.items():
             inputs = observations_to_network_inputs(observations, self.device)
             action_probs, _ = self.network(*inputs)
-            
-            distributions = [torch.distributions.Categorical(probs) for probs in action_probs]
+            distributions = self._get_distributions(action_probs)
             agent_actions = [dist.sample() for dist in distributions]
             log_probs = [dist.log_prob(action) for dist, action in zip(distributions, agent_actions)]
             
@@ -133,11 +135,11 @@ class PPOAgent:
                 new_action_probs: list[Tensor]
                 values: Tensor
                 new_action_probs, values = self.network(*[input.clone() for input in batch_inputs])
+                distributions = self._get_distributions(new_action_probs)
                 advantages = batch_returns_tensor.detach() - values.detach()
 
                 actor_loss = 0
-                for probs, actions_i, old_lp in zip(new_action_probs, batch_action_tensors, batch_old_log_prob_tensors):
-                    dist = torch.distributions.Categorical(probs)
+                for dist, actions_i, old_lp in zip(distributions, batch_action_tensors, batch_old_log_prob_tensors):
                     new_log_probs_i = dist.log_prob(actions_i.detach())
                     ratio = torch.exp(new_log_probs_i - old_lp.detach())
 
