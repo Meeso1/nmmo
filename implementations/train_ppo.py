@@ -13,11 +13,12 @@ from implementations.Observations import Observations, ActionTargets, EntityData
 def train_ppo(
     env: ParallelEnv,
     episodes: int = 1000,
+    print_every: int = 1
 ) -> None:
     agent = PPOAgent()
     avg_rewards = []
     
-    for episode in range(episodes):
+    for episode in range(1, episodes+1):
         states, _ = env.reset()
         episode_data = {
             agent_id: {
@@ -35,6 +36,7 @@ def train_ppo(
             observations = {
                 agent_id: to_observations(agent_state)
                 for agent_id, agent_state in states.items()
+                if agent_id in env.agents
             }
             action_data = agent.get_actions(observations)
 
@@ -68,5 +70,5 @@ def train_ppo(
         avg_reward = sum(total_rewards.values()) / len(total_rewards)
         avg_rewards.append(avg_reward)
         
-        if episode % 1 == 0:
+        if episode % print_every == 0:
             print(f"Episode {episode}, Average Reward: {avg_reward:.2f}")

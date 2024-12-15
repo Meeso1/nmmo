@@ -9,13 +9,12 @@ class InputNetwork(nn.Module):
         super(InputNetwork, self).__init__()
         
         self.id_and_tick = nn.Sequential(
-            # TODO: Encode time maybe?
-            nn.Linear(2, 16),
+            nn.Linear((6+1), 16), # 6 values for agent ID + 1 value for tick
             nn.ReLU()
         )
         
-        self.tiles = nn.Sequential(
-            nn.Conv2d(in_channels=22, out_channels=16, kernel_size=3, padding=1),  # (batch_size, 22, 15, 15) -> (batch_size, 16, 15, 15)
+        self.tiles_and_entities = nn.Sequential(
+            nn.Conv2d(in_channels=(20+3), out_channels=16, kernel_size=3, padding=1),  # (batch_size, 23, 15, 15) -> (batch_size, 16, 15, 15)
             nn.ReLU(),
             nn.MaxPool2d(2),  # (batch_size, 16, 15, 15) -> (batch_size, 16, 7, 7)
             nn.Flatten(),     # (batch_size, 16, 7, 7) -> (batch_size, 784)
@@ -28,28 +27,31 @@ class InputNetwork(nn.Module):
             nn.ReLU()
         )
         
-        self.entities = AttentionNetwork(20, output_dim=128)
+        self.self_data = nn.Sequential(
+            nn.Linear(21, 64),
+            nn.ReLU()
+        )
         
         self.combined = nn.Sequential(
-            nn.Linear(16 + 64 + 64 + 128, output_dim),
+            nn.Linear(16 + 64 + 64 + 64, output_dim),
             nn.ReLU()
         )
     
     def forward(
         self, 
         id_and_tick: Tensor, 
-        tile_data: Tensor, 
+        tile_and_entity_data: Tensor, 
         inventory_data: Tensor, 
-        entity_data: Tensor
+        self_data: Tensor
         ) -> Tensor:
         """
         Forward pass through the network.
         
         Args:
-            id_and_tick: Tensor of shape (batch_size, 2)
-            tile_data: Tensor of shape (batch_size, 15, 15, 22)
+            id_and_tick: Tensor of shape (batch_size, 7)
+            tile_and_entity_data: Tensor of shape (batch_size, 15, 15, 23)
             inventory_data: Tensor of shape (batch_size, 12, 18)
-            entity_data: Tensor of shape (batch_size, 100, 20)
+            self_data: Tensor of shape (batch_size, 21)
         
         Returns:
             Hidden tensor of shape (batch_size, output_dim)
@@ -57,15 +59,15 @@ class InputNetwork(nn.Module):
         x1 = self.id_and_tick(id_and_tick)
         x1 = x1.view(-1, 16)
         
-        x2 = tile_data.permute(0, 3, 1, 2)
-        x2 = self.tiles(x2)
+        x2 = tile_and_entity_data.permute(0, 3, 1, 2)
+        x2 = self.tiles_and_entities(x2)
         x2 = x2.view(-1, 64)
         
         x3 = self.inventory_and_masks(inventory_data)
         x3 = x3.view(-1, 64)
         
-        x4 = self.entities(entity_data)
-        x4 = x4.view(-1, 128)
+        x4 = self.self_data(self_data)
+        x4 = x4.view(-1, 64)
 
         x = torch.cat((x1, x2, x3, x4), dim=1)
         return self.combined(x)

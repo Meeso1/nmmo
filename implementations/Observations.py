@@ -54,7 +54,7 @@ class Observations:
     current_tick: int
     tiles: np.ndarray # 225x3 (15x15, flattened, 3 possible values, one-hot encoded)
     inventory: np.ndarray # 12x16 (12 slots, 16 possible items, one-hot encoded)
-    entities: np.ndarray # 100x31 (100 entities, 31 features)
+    entities: EntityData
     action_targets: ActionTargets
 
 
