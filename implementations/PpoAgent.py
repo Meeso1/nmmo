@@ -52,11 +52,6 @@ class PPOAgent:
         self.epsilon = epsilon
         self.epochs = epochs
         self.batch_size = batch_size
-        self.action_types: list[str] = ["Move",
-                                        "AttackStyle",
-                                        "AttackTarget",
-                                        "Use",
-                                        "Destroy"]
         
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         
@@ -67,8 +62,6 @@ class PPOAgent:
         self.critic_losses = []
         self.total_losses = []
 
-    def _get_distributions(self, action_probs: dict[str, Tensor]) -> dict[str, torch.distributions.Distribution]:
-        return {name: torch.distributions.Categorical(probs) for name, probs in action_probs.items()}
 
     def get_actions(
         self,
@@ -79,7 +72,7 @@ class PPOAgent:
         for agent_id, observations in states.items():
             inputs = observations_to_network_inputs(observations, self.device)
             action_probs, _ = self.network(*inputs)
-            distributions = self._get_distributions(action_probs)
+            distributions = PPONetwork.get_distributions(action_probs)
             agent_actions = {name: dist.sample() for name, dist in distributions.items()}
             log_probs = {name: distributions[name].log_prob(action) for name, action in agent_actions.items()}
             
@@ -100,8 +93,8 @@ class PPOAgent:
     ) -> None:
         all_returns: list[float] = []
         all_states: list[Observations] = []
-        all_actions: dict[str, list[int]] = {type: [] for type in self.action_types}
-        all_old_log_probs: dict[str, list[Tensor]] = {type: [] for type in self.action_types}
+        all_actions: dict[str, list[int]] = {type: [] for type in PPONetwork.action_types()}
+        all_old_log_probs: dict[str, list[Tensor]] = {type: [] for type in PPONetwork.action_types()}
 
         for agent_id in states.keys():
             R = 0.0
@@ -113,7 +106,7 @@ class PPOAgent:
             all_returns.extend(agent_returns)
             all_states.extend(states[agent_id])
             
-            for type in self.action_types:
+            for type in PPONetwork.action_types():
                 all_actions[type].extend([actions_in_step[type] for actions_in_step in actions[agent_id]])
                 all_old_log_probs[type].extend([log_probs_in_step[type] for log_probs_in_step in log_probs[agent_id]])
         
@@ -135,11 +128,11 @@ class PPOAgent:
                 new_action_probs: list[Tensor]
                 values: Tensor
                 new_action_probs, values = self.network(*[input.clone() for input in batch_inputs])
-                distributions = self._get_distributions(new_action_probs)
+                distributions = PPONetwork.get_distributions(new_action_probs)
                 advantages = batch_returns_tensor.detach() - values.detach()
 
                 actor_loss = 0
-                for type in self.action_types:
+                for type in PPONetwork.action_types():
                     dist = distributions[type]
                     actions_i = batch_action_tensors[type]
                     old_lp = batch_old_log_prob_tensors[type]

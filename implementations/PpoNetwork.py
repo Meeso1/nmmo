@@ -1,5 +1,6 @@
 from torch import Tensor
 from torch import nn
+import torch
 from implementations.InputNetwork import InputNetwork
 
 
@@ -7,13 +8,13 @@ class PPONetwork(nn.Module):
     def __init__(self) -> None:
         super(PPONetwork, self).__init__()
 
-        self.action_dims: list[tuple[str, int]] = [
-            ("Move", 5),
-            ("AttackStyle", 3),
-            ("AttackTarget", 101),
-            ("Use", 13),
-            ("Destroy", 13)
-        ]
+        self.action_dims: dict[str, int] = {
+            "Move": 5,
+            "AttackStyle": 3,
+            "AttackTarget": 101,
+            "Use": 13,
+            "Destroy": 13
+        }
         
         self.input_network = InputNetwork(output_dim=128)
         
@@ -24,12 +25,12 @@ class PPONetwork(nn.Module):
             nn.Tanh()
         )
         
-        self.action_heads = nn.ModuleList([
-            nn.Sequential(
-                nn.Linear(64, dim),
-                nn.Softmax(dim=-1)
-            ) for _, dim in self.action_dims
-        ])
+        self.action_heads = nn.ModuleDict({
+            name: nn.Sequential(
+            nn.Linear(64, dim),
+            nn.Softmax(dim=-1)
+            ) for name, dim in self.action_dims.items()
+        })
         
         self.critic_input = InputNetwork(output_dim=64)
         self.critic = nn.Sequential(
@@ -39,6 +40,14 @@ class PPONetwork(nn.Module):
             nn.Tanh(),
             nn.Linear(64, 1)
         )
+        
+    @staticmethod
+    def action_types() -> list[str]:
+        return ["Move", "AttackStyle", "AttackTarget", "Use", "Destroy"]
+    
+    @staticmethod
+    def get_distributions(action_probs: dict[str, Tensor]) -> dict[str, torch.distributions.Distribution]:
+        return {name: torch.distributions.Categorical(probs) for name, probs in action_probs.items()}
     
     def forward(
         self, 
@@ -64,7 +73,7 @@ class PPONetwork(nn.Module):
         
         x = self.input_network(id_and_tick.clone(), tile_data.clone(), inventory_data.clone(), entity_data.clone())
         hidden = self.hidden_network(x)
-        action_probs = {name: net(hidden.clone()) for net, (name, _) in zip(self.action_heads, self.action_dims)}
+        action_probs = {type: self.action_heads[type](hidden.clone()) for type in PPONetwork.action_types()}
         
         x_critic = self.critic_input(id_and_tick.clone(), tile_data.clone(), inventory_data.clone(), entity_data.clone())
         value = self.critic(x_critic)
