@@ -67,8 +67,8 @@ class PPOAgent:
         self.critic_losses = []
         self.total_losses = []
 
-    def _get_distributions(self, action_probs: list[Tensor]) -> list[torch.distributions.Distribution]:
-        return [torch.distributions.Categorical(probs) for probs in action_probs]
+    def _get_distributions(self, action_probs: dict[str, Tensor]) -> list[torch.distributions.Distribution]:
+        return [torch.distributions.Categorical(probs) for probs in action_probs.values()]
 
     def get_actions(
         self,
