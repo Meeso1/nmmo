@@ -9,20 +9,20 @@ from implementations.Observations import Observations
 from implementations.observations_to_inputs import observations_to_network_inputs
 
 
-def indexes_to_action_dict(indexes: list[int]) -> dict[str, dict[str, int]]:
+def indexes_to_action_dict(indexes: dict[str, int]) -> dict[str, dict[str, int]]:
     return {
         "Move": {
-            "Direction": indexes[0]
+            "Direction": indexes["Move"]
         },
         "Attack": {
-            "Style": indexes[1],
-            "Target": indexes[2]
+            "Style": indexes["AttackStyle"],
+            "Target": indexes["AttackTarget"]
         },
         "Use": {
-            "InventoryItem": indexes[3]
+            "InventoryItem": indexes["Use"]
         },
         "Destroy": {
-            "InventoryItem": indexes[4]
+            "InventoryItem": indexes["Destroy"]
         }
     }
 
@@ -53,8 +53,8 @@ class PPOAgent:
         self.epochs = epochs
         self.batch_size = batch_size
         self.action_types: list[str] = ["Move",
-                                        "Attack style",
-                                        "Attack target",
+                                        "AttackStyle",
+                                        "AttackTarget",
                                         "Use",
                                         "Destroy"]
         
@@ -67,8 +67,8 @@ class PPOAgent:
         self.critic_losses = []
         self.total_losses = []
 
-    def _get_distributions(self, action_probs: dict[str, Tensor]) -> list[torch.distributions.Distribution]:
-        return [torch.distributions.Categorical(probs) for probs in action_probs.values()]
+    def _get_distributions(self, action_probs: dict[str, Tensor]) -> dict[str, torch.distributions.Distribution]:
+        return {name: torch.distributions.Categorical(probs) for name, probs in action_probs.items()}
 
     def get_actions(
         self,
@@ -80,12 +80,12 @@ class PPOAgent:
             inputs = observations_to_network_inputs(observations, self.device)
             action_probs, _ = self.network(*inputs)
             distributions = self._get_distributions(action_probs)
-            agent_actions = [dist.sample() for dist in distributions]
-            log_probs = [dist.log_prob(action) for dist, action in zip(distributions, agent_actions)]
+            agent_actions = {name: dist.sample() for name, dist in distributions.items()}
+            log_probs = {name: distributions[name].log_prob(action) for name, action in agent_actions.items()}
             
             actions[agent_id] = (
-                indexes_to_action_dict([a.item() for a in agent_actions]), 
-                [a.item() for a in agent_actions], 
+                indexes_to_action_dict({n: a.item() for n, a in agent_actions.items()}), 
+                {n: a.item() for n, a in agent_actions.items()}, 
                 log_probs
             )
         return actions
@@ -93,9 +93,9 @@ class PPOAgent:
     def update(
         self,
         states: dict[int, list[Observations]],
-        actions: dict[int, list[list[int]]],
+        actions: dict[int, list[dict[str, int]]],
         rewards: dict[int, list[float]],
-        log_probs: dict[int, list[list[Tensor]]],
+        log_probs: dict[int, list[dict[str, Tensor]]],
         dones: dict[int, list[bool]]
     ) -> None:
         all_returns: list[float] = []
@@ -113,24 +113,24 @@ class PPOAgent:
             all_returns.extend(agent_returns)
             all_states.extend(states[agent_id])
             
-            for i, type in enumerate(self.action_types):
-                all_actions[type].extend([step[i] for step in actions[agent_id]])
-                all_old_log_probs[type].extend([step[i] for step in log_probs[agent_id]])
+            for type in self.action_types:
+                all_actions[type].extend([actions_in_step[type] for actions_in_step in actions[agent_id]])
+                all_old_log_probs[type].extend([log_probs_in_step[type] for log_probs_in_step in log_probs[agent_id]])
         
         network_inputs = [observations_to_network_inputs(obs, self.device) for obs in all_states]
         stacked_inputs = [torch.cat([inputs[i] for inputs in network_inputs], dim=0) for i in range(len(network_inputs[0]))]
     
         returns_tensor = torch.FloatTensor(all_returns).to(self.device)
-        action_tensors = [torch.LongTensor(acts).to(self.device) for acts in all_actions.values()]
-        old_log_prob_tensors = [torch.stack(lps).to(self.device) for lps in all_old_log_probs.values()]
+        action_tensors = {name: torch.LongTensor(acts).to(self.device) for name, acts in all_actions.items()}
+        old_log_prob_tensors = {name: torch.stack(lps).to(self.device) for name, lps in all_old_log_probs.items()}
 
         for _ in range(self.epochs):
             for i in range(0, len(network_inputs), self.batch_size):
                 indices = range(i, min(i+self.batch_size, len(network_inputs)))
                 batch_inputs = [input[indices] for input in stacked_inputs]
                 batch_returns_tensor = returns_tensor[indices]
-                batch_action_tensors = [acts[indices] for acts in action_tensors]
-                batch_old_log_prob_tensors = [lps[indices] for lps in old_log_prob_tensors]
+                batch_action_tensors = {name: acts[indices] for name, acts in action_tensors.items()}
+                batch_old_log_prob_tensors = {name: lps[indices] for name, lps in old_log_prob_tensors.items()}
 
                 new_action_probs: list[Tensor]
                 values: Tensor
@@ -139,7 +139,11 @@ class PPOAgent:
                 advantages = batch_returns_tensor.detach() - values.detach()
 
                 actor_loss = 0
-                for dist, actions_i, old_lp in zip(distributions, batch_action_tensors, batch_old_log_prob_tensors):
+                for type in self.action_types:
+                    dist = distributions[type]
+                    actions_i = batch_action_tensors[type]
+                    old_lp = batch_old_log_prob_tensors[type]
+                    
                     new_log_probs_i = dist.log_prob(actions_i.detach())
                     ratio = torch.exp(new_log_probs_i - old_lp.detach())
 
