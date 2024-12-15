@@ -127,21 +127,21 @@ class PPOAgent:
 
                 new_action_probs: list[Tensor]
                 values: Tensor
-                new_action_probs, values = self.network(*[input.clone() for input in batch_inputs])
+                new_action_probs, values = self.network(*batch_inputs)
                 distributions = PPONetwork.get_distributions(new_action_probs)
-                advantages = batch_returns_tensor.detach() - values.detach()
+                advantages = (batch_returns_tensor - values).detach()
 
                 actor_loss = 0
                 for type in PPONetwork.action_types():
                     dist = distributions[type]
                     actions_i = batch_action_tensors[type]
-                    old_lp = batch_old_log_prob_tensors[type]
+                    old_lp = batch_old_log_prob_tensors[type].detach()
                     
-                    new_log_probs_i = dist.log_prob(actions_i.detach())
-                    ratio = torch.exp(new_log_probs_i - old_lp.detach())
+                    new_log_probs_i = dist.log_prob(actions_i)
+                    ratio = torch.exp(new_log_probs_i - old_lp)
 
-                    surr1 = ratio * advantages.detach()
-                    surr2 = torch.clamp(ratio, 1-self.epsilon, 1+self.epsilon) * advantages.detach()
+                    surr1 = ratio * advantages
+                    surr2 = torch.clamp(ratio, 1-self.epsilon, 1+self.epsilon) * advantages
                     actor_loss += -torch.min(surr1, surr2).mean()
 
                 self.optimizer.zero_grad()
