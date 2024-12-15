@@ -5,26 +5,8 @@ import numpy as np
 from torch import Tensor
 
 from implementations.PpoNetwork import PPONetwork
-from implementations.Observations import Observations
+from implementations.Observations import Observations, EntityData
 from implementations.observations_to_inputs import observations_to_network_inputs
-
-
-def indexes_to_action_dict(indexes: dict[str, int]) -> dict[str, dict[str, int]]:
-    return {
-        "Move": {
-            "Direction": indexes["Move"]
-        },
-        "Attack": {
-            "Style": indexes["AttackStyle"],
-            "Target": indexes["AttackTarget"]
-        },
-        "Use": {
-            "InventoryItem": indexes["Use"]
-        },
-        "Destroy": {
-            "InventoryItem": indexes["Destroy"]
-        }
-    }
 
 
 def dict_to_vector(dictionary: dict[str]) -> np.ndarray:
@@ -63,6 +45,34 @@ class PPOAgent:
         self.total_losses = []
 
 
+    @staticmethod
+    def get_attack_target_index(output: np.ndarray, state: Observations) -> int:
+        attackable_idxs = [idx for idx, agent_id in enumerate(state.entities.id)
+                           if agent_id != 0 
+                           and agent_id != state.agent_id 
+                           and state.action_targets.attack_target[idx] == 1]
+        # TODO: Continue
+        pass
+
+    @staticmethod
+    def sampled_outputs_to_action_dict(sampled_outputs: dict[str, int], state: Observations) -> dict[str, dict[str, int]]:
+        return {
+            "Move": {
+                "Direction": sampled_outputs["Move"]
+            },
+            "Attack": {
+                "Style": sampled_outputs["AttackStyle"],
+                "Target": 100 if sampled_outputs["AttackOrNot"] == 0 
+                else PPOAgent.get_attack_target_index(sampled_outputs["AttackTargetPos"], state)
+            },
+            "Use": {
+                "InventoryItem": sampled_outputs["Use"]
+            },
+            "Destroy": {
+                "InventoryItem": sampled_outputs["Destroy"]
+            }
+        }
+
     def get_actions(
         self,
         states: dict[int, Observations]
@@ -77,7 +87,7 @@ class PPOAgent:
             log_probs = {name: distributions[name].log_prob(action) for name, action in agent_actions.items()}
             
             actions[agent_id] = (
-                indexes_to_action_dict({n: a.item() for n, a in agent_actions.items()}), 
+                PPOAgent.sampled_outputs_to_action_dict({n: a.item() for n, a in agent_actions.items()}, observations), 
                 {n: a.item() for n, a in agent_actions.items()}, 
                 log_probs
             )

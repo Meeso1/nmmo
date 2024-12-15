@@ -11,7 +11,8 @@ class PPONetwork(nn.Module):
         self.action_dims: dict[str, int] = {
             "Move": 5,
             "AttackStyle": 3,
-            "AttackTarget": 101,
+            "AttackTargetPos": 4,
+            "AttackOrNot": 2,
             "Use": 13,
             "Destroy": 13
         }
@@ -26,10 +27,30 @@ class PPONetwork(nn.Module):
         )
         
         self.action_heads = nn.ModuleDict({
-            name: nn.Sequential(
-            nn.Linear(64, dim),
-            nn.Softmax(dim=-1)
-            ) for name, dim in self.action_dims.items()
+            "Move": nn.Sequential(
+                nn.Linear(64, self.action_dims["Move"]),
+                nn.Softmax(dim=-1)
+            ),
+            "AttackStyle": nn.Sequential(
+                nn.Linear(64, self.action_dims["AttackStyle"]),
+                nn.Softmax(dim=-1)
+            ),
+            "AttackTargetPos": nn.Sequential(
+                nn.Linear(64, self.action_dims["AttackTarget"]),
+                nn.Tanh()
+            ),
+            "AttackOrNot": nn.Sequential(
+                nn.Linear(64, self.action_dims["AttackOrNot"]),
+                nn.Softmax(dim=-1)
+            ),
+            "Use": nn.Sequential(
+                nn.Linear(64, self.action_dims["Use"]),
+                nn.Softmax(dim=-1)
+            ),
+            "Destroy": nn.Sequential(
+                nn.Linear(64, self.action_dims["Destroy"]),
+                nn.Softmax(dim=-1)
+            )
         })
         
         self.critic_input = InputNetwork(output_dim=64)
@@ -43,7 +64,7 @@ class PPONetwork(nn.Module):
         
     @staticmethod
     def action_types() -> list[str]:
-        return ["Move", "AttackStyle", "AttackTarget", "Use", "Destroy"]
+        return ["Move", "AttackStyle", "AttackTargetPos", "AttackOrNot", "Use", "Destroy"]
     
     @staticmethod
     def get_distributions(action_probs: dict[str, Tensor]) -> dict[str, torch.distributions.Distribution]:
