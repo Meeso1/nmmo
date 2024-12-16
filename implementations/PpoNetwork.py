@@ -36,7 +36,8 @@ class PPONetwork(nn.Module):
                 nn.Softmax(dim=-1)
             ),
             "AttackTargetPos": nn.Sequential(
-                nn.Linear(64, self.action_dims["AttackTarget"]),
+                # Should return -1 to 1
+                nn.Linear(64, self.action_dims["AttackTargetPos"]),
                 nn.Tanh()
             ),
             "AttackOrNot": nn.Sequential(
@@ -68,7 +69,17 @@ class PPONetwork(nn.Module):
     
     @staticmethod
     def get_distributions(action_probs: dict[str, Tensor]) -> dict[str, torch.distributions.Distribution]:
-        return {name: torch.distributions.Categorical(probs) for name, probs in action_probs.items()}
+        return {
+            "Move": torch.distributions.Categorical(action_probs["Move"]),
+            "AttackStyle": torch.distributions.Categorical(action_probs["AttackStyle"]),
+            "AttackTargetPos": torch.distributions.Normal(
+                action_probs["AttackTargetPos"][:, [0, 1]] * 7.5, 
+                (action_probs["AttackTargetPos"][:, [2, 3]] + 1) / 2 * 7.5, 
+                1e-5),
+            "AttackOrNot": torch.distributions.Categorical(action_probs["AttackOrNot"]),
+            "Use": torch.distributions.Categorical(action_probs["Use"]),
+            "Destroy": torch.distributions.Categorical(action_probs["Destroy"])
+        }
     
     def forward(
         self, 
