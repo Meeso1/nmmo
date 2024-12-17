@@ -63,14 +63,9 @@ def _encode_id(single_id: int) -> np.ndarray:
 	"""
 	Encode agent ID into some constant representations - (6,) array
 	"""
-	encoded = np.stack([
-		single_id % 2,
-		single_id % 4,
-		single_id % 8,
-		single_id % 16,
-		single_id % 32,
-		single_id % 64
-	], axis=-1)
+	encoded = np.array([
+		(single_id >> i) & 1 for i in range(6)
+	])
 
 	return encoded
 
