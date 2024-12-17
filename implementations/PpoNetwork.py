@@ -26,14 +26,14 @@ class PPONetwork(nn.Module):
             nn.Tanh()
         )
         
+        # For actions with mask, max will be added before softmax
+        # So, softmax is not included in these action heads
         self.action_heads = nn.ModuleDict({
             "Move": nn.Sequential(
-                nn.Linear(64, self.action_dims["Move"]),
-                nn.Softmax(dim=-1)
+                nn.Linear(64, self.action_dims["Move"])
             ),
             "AttackStyle": nn.Sequential(
-                nn.Linear(64, self.action_dims["AttackStyle"]),
-                nn.Softmax(dim=-1)
+                nn.Linear(64, self.action_dims["AttackStyle"])
             ),
             "AttackTargetPos": nn.Sequential(
                 # Should return -1 to 1
@@ -45,12 +45,10 @@ class PPONetwork(nn.Module):
                 nn.Softmax(dim=-1)
             ),
             "Use": nn.Sequential(
-                nn.Linear(64, self.action_dims["Use"]),
-                nn.Softmax(dim=-1)
+                nn.Linear(64, self.action_dims["Use"])
             ),
             "Destroy": nn.Sequential(
-                nn.Linear(64, self.action_dims["Destroy"]),
-                nn.Softmax(dim=-1)
+                nn.Linear(64, self.action_dims["Destroy"])
             )
         })
         
@@ -86,7 +84,8 @@ class PPONetwork(nn.Module):
         id_and_tick: Tensor, 
         tile_data: Tensor, 
         inventory_data: Tensor, 
-        entity_data: Tensor
+        entity_data: Tensor,
+        *masks: Tensor
         ) -> tuple[dict[str, Tensor], Tensor]:
         """
         Forward pass through the network.
@@ -96,16 +95,38 @@ class PPONetwork(nn.Module):
             tile_data: Tensor of shape (batch_size, 255, 3)
             inventory_data: Tensor of shape (batch_size, 12, 18)
             entity_data: Tensor of shape (batch_size, 100, 32)
+            masks: List of masks for some action types, each of shape (batch_size, action_dim)
         
         Returns:
             Tuple containing:
             - Dict of action probability tensors, each of shape (batch_size, action_dim)
             - Value tensor of shape (batch_size, 1)
         """
+        if len(masks) != 4:
+            raise ValueError("Expected 4 action mask tensors, got " + str(len(masks)))
+        
+        action_masks = {
+            "Move": masks[0],
+            "AttackStyle": masks[1],
+            "Use": masks[2],
+            "Destroy": masks[3]
+        }
         
         x = self.input_network(id_and_tick.clone(), tile_data.clone(), inventory_data.clone(), entity_data.clone())
-        hidden = self.hidden_network(x)
-        action_probs = {type: self.action_heads[type](hidden.clone()) for type in PPONetwork.action_types()}
+        hidden: Tensor = self.hidden_network(x)
+        action_probs = {}
+        for action_type in self.action_types():
+            output = self.action_heads[action_type](hidden)
+            if action_type in action_masks:
+                # Change the 0s in the mask to -inf, and the 1s to 0
+                # This way, we can add the mask to the output to zero out the invalid actions
+                softmax_mask = action_masks[action_type].clone()
+                softmax_mask[softmax_mask == 0] = float("-inf")
+                softmax_mask[softmax_mask == 1] = 0
+                output += softmax_mask
+                output = nn.functional.softmax(output, dim=-1)
+
+            action_probs[action_type] = output
         
         x_critic = self.critic_input(id_and_tick.clone(), tile_data.clone(), inventory_data.clone(), entity_data.clone())
         value = self.critic(x_critic)
