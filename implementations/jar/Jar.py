@@ -63,8 +63,13 @@ class Jar:
         """
         full_path = self._get_full_path(name, kind)
         os.makedirs(os.path.dirname(full_path), exist_ok=True)
-        with open(full_path, 'wb') as f:
-            pickle.dump(obj, f)
+        if kind == "numpy":
+            np.save(full_path, obj)
+        elif kind == "torch":
+            torch.save(obj, full_path)
+        else:
+            with open(full_path, 'wb') as f:
+                pickle.dump(obj, f)
 
     def get(self, name: str) -> Any:
         """
