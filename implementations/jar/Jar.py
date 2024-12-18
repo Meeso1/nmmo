@@ -27,7 +27,7 @@ class Jar:
     def _get_full_path(self, name: str, kind: Literal["numpy", "torch", "pickle"]) -> str:
         dir_path = self._get_dir_path(name)
         timestamp = int(time.time())
-        extension = ".pkl" if kind == "pickle" else ".npy" if kind == "numpy" else ".pth"
+        extension = ".pkl" if kind == "pickle" else (".npy" if kind == "numpy" else ".pth")
 
         filename = f"{os.path.basename(name)}-{timestamp}{extension}"
         return os.path.join(dir_path, filename)
@@ -38,7 +38,7 @@ class Jar:
             return []
         files = [f for f in os.listdir(dir_path)
                  if f.startswith(os.path.basename(name) + '-')
-                 and (f.endswith('.pkl') or f.endswith('.npy'))]
+                 and (f.endswith('.pkl') or f.endswith('.npy') or f.endswith('.pth'))]
         return [os.path.join(dir_path, f) for f in files]
 
     def _get_latest_file(self, name: str) -> str:
