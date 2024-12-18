@@ -8,13 +8,15 @@ from nmmo.core.config import Config, Resource, Progression
 
 _map_size_x = 128
 _map_size_y = 128
+_view_radius = 7
+_view_size = 2 * _view_radius + 1
 
 
 def observations_to_network_inputs(obs: Observations, device: torch.device) \
 	-> tuple[Tensor, Tensor, Tensor, Tensor]:
 	id_and_tick = torch.tensor(
 		np.concatenate([
-      		_encode_id(obs.agent_id), 
+      		_encode_id(obs.agent_id),
         	np.array([
             	np.log(obs.current_tick+1)
             ])
@@ -26,13 +28,13 @@ def observations_to_network_inputs(obs: Observations, device: torch.device) \
 	cnn_entiy_data, self_data = _get_entity_data(obs)
 	tiles = torch.tensor(
 		np.concatenate([
-			obs.tiles.reshape(15, 15, 3),
+			obs.tiles.reshape(_view_size, _view_size, 3),
 			cnn_entiy_data
 		], axis=2),
 		dtype=torch.float32,
 		device=device
 	).unsqueeze(0)
-	
+
 	inventory = torch.tensor(
 		np.concatenate([
 			obs.inventory,
@@ -48,14 +50,14 @@ def observations_to_network_inputs(obs: Observations, device: torch.device) \
 		dtype=torch.float32,
 		device=device
 	).unsqueeze(0)
- 
+
 	masks = [
 		torch.tensor(obs.action_targets.move_direction, dtype=torch.float32, device=device).unsqueeze(0),
 		torch.tensor(obs.action_targets.attack_style, dtype=torch.float32, device=device).unsqueeze(0),
 		torch.tensor(obs.action_targets.use_inventory_item, dtype=torch.float32, device=device).unsqueeze(0),
 		torch.tensor(obs.action_targets.destroy_inventory_item, dtype=torch.float32, device=device).unsqueeze(0)
 	]
-	
+
 	return id_and_tick, tiles, inventory, self_data, *masks
 
 
@@ -169,25 +171,28 @@ class SingleEntity:
 
 def _get_entity_data(obs: Observations) -> tuple[np.ndarray, np.ndarray]:
 	"""
-	Get entity data for the CNN (of shape (15, 15, 20)) and self data (of shape (21,))
+	Get entity data for the CNN (of shape (15, 15, 21)) and self data (of shape (21,))
 	"""
 	if np.all(obs.entities.id != obs.agent_id):
 		print(f"[{obs.current_tick:4d}] Agent {obs.agent_id} not found in entities ({np.sum(obs.entities.id != 0)} entities seen)")
-		return np.zeros((15, 15, 20)), np.zeros((21,))
-	
+		return np.zeros((_view_size, _view_size, 21)), np.zeros((21,))
+
 	me_idx = np.where(obs.entities.id == obs.agent_id)[0][0]
 	me = SingleEntity.from_entity_data(obs.entities, me_idx)
- 
-	other_entites = [SingleEntity.from_entity_data(obs.entities, i) 
-				  	for i, a_id in enumerate(obs.entities.id) 
+
+	other_entites = [SingleEntity.from_entity_data(obs.entities, i)
+				  	for i, a_id in enumerate(obs.entities.id)
 				   	if a_id != obs.agent_id and a_id != 0]
- 
-	cnn_data = np.zeros((15, 15, 20))
+
+	cnn_data = np.zeros((_view_size, _view_size, 21))
 	for entity in other_entites:
-		cnn_data[entity.row - me.row + 7, entity.col - me.col + 7, :] = \
+		cnn_data[entity.row - me.row + _view_radius, entity.col - me.col + _view_radius, :] = \
 			np.concatenate([
 				entity.to_input_array(),
-				np.array([obs.action_targets.attack_target[me_idx]])
+				np.array([
+        			obs.action_targets.attack_target[me_idx],
+					np.sqrt((entity.row - me.row) ** 2 + (entity.col - me.col) ** 2) / np.sqrt(_view_radius ** 2 + _view_radius ** 2),
+              	]),
     		])
 
 	my_data = SingleEntity.from_entity_data(obs.entities, me_idx)
@@ -198,4 +203,3 @@ def _get_entity_data(obs: Observations) -> tuple[np.ndarray, np.ndarray]:
 				my_data.row / _map_size_y
 			])
     	])
- 
