@@ -1,8 +1,9 @@
 import os
 import pickle
 import time
+import torch
 import numpy as np
-from typing import Any, ClassVar
+from typing import Any, ClassVar, Literal
 
 
 class Jar:
@@ -23,10 +24,12 @@ class Jar:
         name_dir = os.path.dirname(name)
         return os.path.join(self.base_path, self.prefix, name_dir)
 
-    def _get_full_path(self, name: str, is_array: bool) -> str:
+    def _get_full_path(self, name: str, kind: Literal["numpy", "torch", "pickle"]) -> str:
         dir_path = self._get_dir_path(name)
         timestamp = int(time.time())
-        filename = f"{os.path.basename(name)}-{timestamp}{'.pkl' if not is_array else '.npy'}"
+        extension = ".pkl" if kind == "pickle" else ".npy" if kind == "numpy" else ".pth"
+
+        filename = f"{os.path.basename(name)}-{timestamp}{extension}"
         return os.path.join(dir_path, filename)
 
     def _find_files(self, name: str) -> list[str]:
@@ -34,7 +37,7 @@ class Jar:
         if not os.path.exists(dir_path):
             return []
         files = [f for f in os.listdir(dir_path)
-                 if f.startswith(os.path.basename(name) + '-') 
+                 if f.startswith(os.path.basename(name) + '-')
                  and (f.endswith('.pkl') or f.endswith('.npy'))]
         return [os.path.join(dir_path, f) for f in files]
 
@@ -42,7 +45,7 @@ class Jar:
         files = self._find_files(name)
         if not files:
             raise KeyError(f"No object named '{name}' found")
-        
+
         timestamps = {
             f: int(f.split('-')[-1].split('.')[0])
             for f in files
@@ -50,7 +53,7 @@ class Jar:
         latest_file = max(timestamps, key=timestamps.get)
         return latest_file
 
-    def add(self, name: str, obj: Any) -> None:
+    def add(self, name: str, obj: Any, kind: Literal["numpy", "torch", "pickle"] = "pickle") -> None:
         """
         Save the object to a file with a timestamp.
 
@@ -58,7 +61,7 @@ class Jar:
             name (str): The name of the object.
             obj (Any): The object to save.
         """
-        full_path = self._get_full_path(name, isinstance(obj, np.ndarray))
+        full_path = self._get_full_path(name, kind)
         os.makedirs(os.path.dirname(full_path), exist_ok=True)
         with open(full_path, 'wb') as f:
             pickle.dump(obj, f)
@@ -76,10 +79,12 @@ class Jar:
         full_path = self._get_latest_file(name)
         if full_path.endswith('.npy'):
             return np.load(full_path)
+        elif full_path.endswith('.pth'):
+            return torch.load(full_path)
         else:
             with open(full_path, 'rb') as f:
                 return pickle.load(f)
-        
+
     def get_all(self, name: str) -> list[Any]:
         """
         Load all objects with the given name.
@@ -102,7 +107,7 @@ class Jar:
         """
         full_path = self._get_latest_file(name)
         os.remove(full_path)
-        
+
     def remove_all(self, name: str) -> None:
         """
         Delete all objects with the given name.
@@ -137,9 +142,11 @@ class Jar:
         base_dir = os.path.join(self.base_path, self.prefix)
         for root, _, files in os.walk(base_dir):
             for file in files:
-                if file.endswith('.pkl') or file.endswith('.npy'):
-                    relative_path = os.path.relpath(root, base_dir)
-                    name = '-'.join(file.split('-')[:-1]) # Remove part after last '-' (timestamp)
-                    object_name = os.path.join(relative_path, name).replace('\\', '/')
-                    object_names.add(object_name)
+                if not (file.endswith('.pkl') or file.endswith('.npy') or file.endswith('.pth')):
+                    continue
+
+                relative_path = os.path.relpath(root, base_dir)
+                name = '-'.join(file.split('-')[:-1]) # Remove part after last '-' (timestamp)
+                object_name = os.path.join(relative_path, name).replace('\\', '/')
+                object_names.add(object_name)
         return object_names

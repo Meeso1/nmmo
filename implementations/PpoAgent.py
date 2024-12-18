@@ -7,6 +7,7 @@ from torch import Tensor
 from implementations.PpoNetwork import PPONetwork
 from implementations.Observations import Observations, EntityData
 from implementations.observations_to_inputs import observations_to_network_inputs
+from implementations.jar import Jar
 
 
 def dict_to_vector(dictionary: dict[str]) -> np.ndarray:
@@ -19,7 +20,7 @@ def dict_to_vector(dictionary: dict[str]) -> np.ndarray:
         segments.append(segment)
 
     return np.concatenate(segments)
-  
+
 
 class PPOAgent:
     def __init__(
@@ -34,9 +35,10 @@ class PPOAgent:
         self.epsilon = epsilon
         self.epochs = epochs
         self.batch_size = batch_size
-        
+        self.learning_rate = learning_rate
+
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        
+
         self.network = PPONetwork().to(self.device)
         self.optimizer = optim.Adam(self.network.parameters(), lr=learning_rate)
 
@@ -44,23 +46,22 @@ class PPOAgent:
         self.critic_losses = []
         self.total_losses = []
 
-
     @staticmethod
     def get_attack_target_index(x: float, y: float, state: Observations) -> int:
         if np.all(state.entities.id != state.agent_id):
             return 100
-        
+
         attackable_idxs = [idx for idx, agent_id in enumerate(state.entities.id)
-                           if agent_id != 0 
-                           and agent_id != state.agent_id 
+                           if agent_id != 0
+                           and agent_id != state.agent_id
                            and state.action_targets.attack_target[idx] == 1]
-        
+
         if len(attackable_idxs) == 0:
             return 100
 
         me_idx = np.where(state.entities.id == state.agent_id)[0][0]
-        distances = [(state.entities.col[idx] - state.entities.col[me_idx] - x)**2 
-                     + (state.entities.row[idx] - state.entities.row[me_idx] - y)**2 
+        distances = [(state.entities.col[idx] - state.entities.col[me_idx] - x)**2
+                     + (state.entities.row[idx] - state.entities.row[me_idx] - y)**2
                      for idx in attackable_idxs]
         return attackable_idxs[np.argmin(distances)]
 
@@ -73,7 +74,7 @@ class PPOAgent:
             },
             "Attack": {
                 "Style": sampled_outputs["AttackStyle"].item(),
-                "Target": 100 if sampled_outputs["AttackOrNot"].item() == 0 
+                "Target": 100 if sampled_outputs["AttackOrNot"].item() == 0
                 else PPOAgent.get_attack_target_index(attack_target_pos[0], attack_target_pos[1], state)
             },
             "Use": {
@@ -89,22 +90,22 @@ class PPOAgent:
         states: dict[int, Observations]
     ) -> dict[int, tuple[dict[str, dict[str, int]], list[int], list[Tensor]]]:
         actions = {}
-        
+
         for agent_id, observations in states.items():
             inputs = observations_to_network_inputs(observations, self.device)
             action_probs, _ = self.network(*inputs)
             distributions = PPONetwork.get_distributions(action_probs)
             agent_actions = {name: dist.sample() for name, dist in distributions.items()}
             log_probs = {name: distributions[name].log_prob(action) for name, action in agent_actions.items()}
-            
+
             # Get a single log prob value for each sample
             for name, log_prob in log_probs.items():
                 if log_prob.dim() > 1:
                     log_probs[name] = log_prob.sum(dim=-1)
-            
+
             actions[agent_id] = (
-                PPOAgent.sampled_outputs_to_action_dict(agent_actions, observations), 
-                agent_actions, 
+                PPOAgent.sampled_outputs_to_action_dict(agent_actions, observations),
+                agent_actions,
                 log_probs
             )
         return actions
@@ -128,17 +129,17 @@ class PPOAgent:
             for r, d in zip(reversed(rewards[agent_id]), reversed(dones[agent_id])):
                 R = r + self.gamma * R * (1-d)
                 agent_returns.insert(0, R)
-            
+
             all_returns.extend(agent_returns)
             all_states.extend(states[agent_id])
-            
+
             for type in PPONetwork.action_types():
                 all_actions[type].extend([actions_in_step[type] for actions_in_step in actions[agent_id]])
                 all_old_log_probs[type].extend([log_probs_in_step[type] for log_probs_in_step in log_probs[agent_id]])
-        
+
         network_inputs = [observations_to_network_inputs(obs, self.device) for obs in all_states]
         stacked_inputs = [torch.cat([inputs[i] for inputs in network_inputs], dim=0) for i in range(len(network_inputs[0]))]
-    
+
         returns_tensor = torch.FloatTensor(all_returns).to(self.device)
         action_tensors = {name: torch.cat(acts, dim=0).to(self.device) for name, acts in all_actions.items()}
         old_log_prob_tensors = {name: torch.cat(lps, dim=0).to(self.device) for name, lps in all_old_log_probs.items()}
@@ -162,11 +163,11 @@ class PPOAgent:
                     dist = distributions[type]
                     actions_i = batch_action_tensors[type]
                     old_lp = batch_old_log_prob_tensors[type].detach()
-                    
+
                     new_log_probs_i = dist.log_prob(actions_i)
                     if new_log_probs_i.dim() > 1:
                         new_log_probs_i = new_log_probs_i.sum(dim=-1)
-                        
+
                     ratio = torch.exp(new_log_probs_i - old_lp)
 
                     surr1 = ratio * advantages
@@ -185,3 +186,36 @@ class PPOAgent:
                 self.actor_losses.append(actor_loss.item())
                 self.critic_losses.append(critic_loss.item())
                 self.total_losses.append(actor_loss.item() + critic_loss.item())
+
+    def save(self, name: str | None = None) -> None:
+        agent_name = name if name is not None else "PPOAgent"
+        jar = Jar("saved_agents")
+
+        constructor_params = {
+            "learning_rate": self.learning_rate,
+            "gamma": self.gamma,
+            "epsilon": self.epsilon,
+            "epochs": self.epochs,
+            "batch_size": self.batch_size
+        }
+
+        jar.add(f"{agent_name}-params", constructor_params)
+        jar.add(f"{agent_name}-state", self.network.state_dict(), kind="torch")
+
+    @staticmethod
+    def load(name: str | None = None) -> 'PPOAgent':
+        agent_name = name if name is not None else "PPOAgent"
+        jar = Jar("saved_agents")
+
+        if f"{agent_name}-state" not in jar:
+            raise FileNotFoundError(f"Could not find agent state for '{agent_name}'")
+        if f"{agent_name}-params" not in jar:
+            raise FileNotFoundError(f"Could not find agent parameters for '{agent_name}'")
+
+        constructor_params = jar.get(f"{agent_name}-params")
+        agent = PPOAgent(**constructor_params)
+
+        state_dict = jar.get(f"{agent_name}-state")
+        agent.network.load_state_dict(state_dict)
+        agent.network.eval()
+        return agent
