@@ -3,6 +3,7 @@ import pickle
 import time
 import torch
 import numpy as np
+import warnings
 from typing import Any, ClassVar, Literal
 
 
@@ -85,7 +86,8 @@ class Jar:
         if full_path.endswith('.npy'):
             return np.load(full_path)
         elif full_path.endswith('.pth'):
-            return torch.load(full_path)
+            warnings.filterwarnings("ignore", "You are using `torch.load` with `weights_only=False`*.")
+            return torch.load(full_path, weights_only=False)
         else:
             with open(full_path, 'rb') as f:
                 return pickle.load(f)
