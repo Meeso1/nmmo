@@ -10,18 +10,6 @@ from implementations.observations_to_inputs import observations_to_network_input
 from implementations.jar import Jar
 
 
-def dict_to_vector(dictionary: dict[str]) -> np.ndarray:
-    segments = []
-    for v in dictionary.values():
-        if isinstance(v, dict):
-            segment = dict_to_vector(v)
-        else:
-            segment = np.array(v).ravel()
-        segments.append(segment)
-
-    return np.concatenate(segments)
-
-
 class PPOAgent:
     def __init__(
         self,
