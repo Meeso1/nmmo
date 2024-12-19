@@ -24,6 +24,7 @@ dependencies = [
     "torch>2",
     "transformers",
     "wandb",
+    "matplotlib",
 ]
 
 [tool.setuptools.packages.find]

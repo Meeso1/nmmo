@@ -1,3 +1,4 @@
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
 import torch
 from torch import optim
@@ -10,7 +11,14 @@ from implementations.observations_to_inputs import observations_to_network_input
 from implementations.jar import Jar
 
 
-class PPOAgent:
+class AgentBase(ABC):
+    @abstractmethod
+    def get_actions(self, states: dict[int, Observations]) \
+        -> dict[int, tuple[dict[str, dict[str, int]], dict[str, Tensor], dict[str, Tensor]]]:
+        pass
+
+
+class PPOAgent(AgentBase):
     def __init__(
         self,
         learning_rate: float = 3e-4,
@@ -76,7 +84,7 @@ class PPOAgent:
     def get_actions(
         self,
         states: dict[int, Observations]
-    ) -> dict[int, tuple[dict[str, dict[str, int]], list[int], list[Tensor]]]:
+    ) -> dict[int, tuple[dict[str, dict[str, int]], dict[str, Tensor], dict[str, Tensor]]]:
         actions = {}
 
         for agent_id, observations in states.items():
