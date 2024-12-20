@@ -38,10 +38,6 @@ class PPOAgent(AgentBase):
         self.network = PPONetwork().to(self.device)
         self.optimizer = optim.Adam(self.network.parameters(), lr=learning_rate)
 
-        self.actor_losses = []
-        self.critic_losses = []
-        self.total_losses = []
-
     @staticmethod
     def get_attack_target_index(x: float, y: float, state: Observations) -> int:
         if np.all(state.entities.id != state.agent_id):
@@ -113,7 +109,7 @@ class PPOAgent(AgentBase):
         rewards: dict[int, list[float]],
         log_probs: dict[int, list[dict[str, Tensor]]],
         dones: dict[int, list[bool]]
-    ) -> None:
+    ) -> tuple[list[float], list[float], list[float]]:
         all_returns: list[float] = []
         all_states: list[Observations] = []
         all_actions: dict[str, list[Tensor]] = {type: [] for type in PPONetwork.action_types()}
@@ -140,7 +136,14 @@ class PPOAgent(AgentBase):
         action_tensors = {name: torch.cat(acts, dim=0).to(self.device) for name, acts in all_actions.items()}
         old_log_prob_tensors = {name: torch.cat(lps, dim=0).to(self.device) for name, lps in all_old_log_probs.items()}
 
+        actor_losses = []
+        critic_losses = []
+        total_losses = []
+
         for _ in range(self.epochs):
+            epoch_actor_losses = torch.zeros(len(network_inputs), device=self.device)
+            epoch_critic_losses = torch.zeros(len(network_inputs), device=self.device)
+
             indices = np.arange(len(network_inputs))
             np.random.shuffle(indices)
 
@@ -172,6 +175,10 @@ class PPOAgent(AgentBase):
                     surr1 = ratio * advantages
                     surr2 = torch.clamp(ratio, 1-self.epsilon, 1+self.epsilon) * advantages
                     actor_loss += -torch.min(surr1, surr2).mean()
+                    
+                    # Save losses for history
+                    epoch_actor_losses[batch_indices] = -torch.min(surr1, surr2)
+                    epoch_critic_losses[batch_indices] = 0.5 * (values.squeeze() - batch_returns_tensor.detach()).pow(2)
 
                 self.optimizer.zero_grad()
                 actor_loss.backward()
@@ -182,9 +189,11 @@ class PPOAgent(AgentBase):
                 critic_loss.backward()
                 self.optimizer.step()
 
-                self.actor_losses.append(actor_loss.item())
-                self.critic_losses.append(critic_loss.item())
-                self.total_losses.append(actor_loss.item() + critic_loss.item())
+            actor_losses.append(epoch_actor_losses.mean().item())
+            critic_losses.append(epoch_critic_losses.mean().item())
+            total_losses.append(epoch_actor_losses.mean().item() + epoch_critic_losses.mean().item())
+            
+        return actor_losses, critic_losses, total_losses
 
     def save(self, name: str | None = None) -> None:
         agent_name = name if name is not None else "PPOAgent"

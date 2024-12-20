@@ -21,7 +21,11 @@ class EvaluationCallback(ABC):
         pass
     
     @abstractmethod
-    def episode_end(self, episode: int, rewards_per_agent: dict[int, float]) -> None:
+    def episode_end(
+        self, 
+        episode: int, 
+        rewards_per_agent: dict[int, float],
+        losses: tuple[list[float], list[float], list[float]]) -> None:
         pass
 
 
@@ -99,16 +103,16 @@ def train_ppo(
 
             step += 1
             
-        for callback in callbacks:
-            callback.episode_end(episode, total_rewards)
-
-        agent.update(
+        episode_losses = agent.update(
             {aid: data['states'] for aid, data in episode_data.items()},
             {aid: data['actions'] for aid, data in episode_data.items()},
             {aid: data['rewards'] for aid, data in episode_data.items()},
             {aid: data['log_probs'] for aid, data in episode_data.items()},
             {aid: data['dones'] for aid, data in episode_data.items()}
         )
+        
+        for callback in callbacks:
+            callback.episode_end(episode, total_rewards, episode_losses)
 
         avg_reward = sum(total_rewards.values()) / len(total_rewards)
         avg_rewards.append(avg_reward)

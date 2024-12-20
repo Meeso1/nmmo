@@ -56,6 +56,30 @@ class Observations:
     inventory: np.ndarray # 12x16 (12 slots, 16 possible items, one-hot encoded)
     entities: EntityData
     action_targets: ActionTargets
+    
+    def to_dict(self) -> dict:
+        return {
+            "AgentId": self.agent_id,
+            "CurrentTick": self.current_tick,
+            "Inventory": self.inventory,
+            "Tile": self.tiles,
+            "Entity": np.column_stack([getattr(self.entities, attr) for attr in EntityState.State.attr_name_to_col]),
+            "ActionTargets": {
+                "Move": {
+                    "Direction": self.action_targets.move_direction
+                },
+                "Attack": {
+                    "Style": self.action_targets.attack_style,
+                    "Target": self.action_targets.attack_target
+                },
+                "Use": {
+                    "InventoryItem": self.action_targets.use_inventory_item
+                },
+                "Destroy": {
+                    "InventoryItem": self.action_targets.destroy_inventory_item
+                }
+            }
+        }
 
 
 def to_observations(obs: dict[str]) -> Observations:
