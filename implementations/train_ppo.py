@@ -124,7 +124,8 @@ def evaluate_agent(
     env: ParallelEnv, 
     agent: AgentBase, 
     *,
-    episodes=10,
+    episodes: int = 10,
+    custom_reward: CustomRewardBase | None = None,
     callbacks: list[EvaluationCallback] | None = None
 ) -> None:
     if callbacks is None:
@@ -133,6 +134,9 @@ def evaluate_agent(
     avg_rewards = []
 
     for episode in range(1, episodes+1):
+        if custom_reward is not None:
+            custom_reward.reset()
+        
         states, _ = env.reset()
         total_rewards: dict[int, float] = {agent_id: 0.0 for agent_id in env.agents}
 
@@ -155,7 +159,9 @@ def evaluate_agent(
                 for agent_id in env.agents
             }
 
-            states, rewards, _, _, _ = env.step(env_actions)
+            states, rewards, terminations, truncations, _ = env.step(env_actions)
+            if custom_reward is not None:
+                rewards = custom_reward.get_rewards(observations, rewards, terminations, truncations)
             
             for callback in callbacks:
                 callback.step(observations, env_actions, episode, step)
