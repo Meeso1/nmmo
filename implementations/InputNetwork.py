@@ -16,18 +16,38 @@ class InputNetwork(nn.Module):
             nn.Conv2d(in_channels=(21+3), out_channels=16, kernel_size=3, padding=1),  # (batch_size, 24, 15, 15) -> (batch_size, 16, 15, 15)
             nn.ReLU(),
             nn.MaxPool2d(2),  # (batch_size, 16, 15, 15) -> (batch_size, 16, 7, 7)
-            nn.Flatten(),     # (batch_size, 16, 7, 7) -> (batch_size, 784)
-            nn.Linear(784, 64),
+            nn.Conv2d(in_channels=16, out_channels=32, kernel_size=3, padding=1),  # (batch_size, 16, 7, 7) -> (batch_size, 32, 7, 7)
+            nn.ReLU(),
+            nn.MaxPool2d(2),  # (batch_size, 32, 7, 7) -> (batch_size, 32, 3, 3)
+            nn.Flatten(),     # (batch_size, 32, 3, 3) -> (batch_size, 288)
+            nn.Linear(288, 64),
             nn.ReLU()
         )
 
-        self.inventory_and_masks = nn.Sequential(
-            nn.Linear(12*(16 + 1 + 1), 64), # 12 slots x (16 items + <use mask> + <destroy mask>)
+        self.item_embedding = nn.Sequential(
+            nn.Embedding(256, 32),      # (batch_size, 12, 2) -> (batch_size, 12, 2, 32)
+            nn.Flatten(start_dim=2)     # (batch_size, 12, 2, 32) -> (batch_size, 12, 2*32)
+        )
+        self.item_network = nn.Sequential(
+            nn.Linear(2*32 + 14, 64),
+            nn.ReLU(),
+            nn.Linear(64, 32),
+            nn.ReLU(),
+            nn.LayerNorm(32)
+        )
+
+        self.inventory = nn.Sequential(
+            nn.Flatten(),
+            nn.Linear(12*32, 64),
+            nn.ReLU(),
+            nn.Linear(64, 64),
             nn.ReLU()
         )
 
         self.self_data = nn.Sequential(
             nn.Linear(21, 64),
+            nn.ReLU(),
+            nn.Linear(64, 64),
             nn.ReLU()
         )
 
@@ -40,7 +60,8 @@ class InputNetwork(nn.Module):
         self,
         id_and_tick: Tensor,
         tile_and_entity_data: Tensor,
-        inventory_data: Tensor,
+        items_discrete: Tensor,
+        items_continuous: Tensor,
         self_data: Tensor
         ) -> Tensor:
         """
@@ -49,7 +70,8 @@ class InputNetwork(nn.Module):
         Args:
             id_and_tick: Tensor of shape (batch_size, 7)
             tile_and_entity_data: Tensor of shape (batch_size, 15, 15, 24)
-            inventory_data: Tensor of shape (batch_size, 12, 18)
+            items_discrete: Tensor of shape (batch_size, 12, 2) (int64)
+            items_continuous: Tensor of shape (batch_size, 12, 14)
             self_data: Tensor of shape (batch_size, 21)
 
         Returns:
@@ -62,7 +84,10 @@ class InputNetwork(nn.Module):
         x2 = self.tiles_and_entities(x2)
         x2 = x2.view(-1, 64)
 
-        x3 = self.inventory_and_masks(inventory_data)
+        x3 = self.item_embedding(items_discrete.clip(0, 255))
+        x3 = torch.cat((x3, items_continuous), dim=2)
+        x3 = self.item_network(x3)        
+        x3 = self.inventory(x3)
         x3 = x3.view(-1, 64)
 
         x4 = self.self_data(self_data)

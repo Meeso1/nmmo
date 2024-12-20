@@ -20,9 +20,15 @@ class PPONetwork(nn.Module):
         self.input_network = InputNetwork(output_dim=128)
 
         self.hidden_network = nn.Sequential(
-            nn.Linear(128, 64),
+            nn.Linear(128, 256),
             nn.Tanh(),
-            nn.Linear(64, 64),
+            nn.Linear(256, 256),
+            nn.Tanh(),
+            nn.Linear(256, 256),
+            nn.Tanh(),
+            nn.Linear(256, 256),
+            nn.Tanh(),
+            nn.Linear(256, 64),
             nn.Tanh()
         )
 
@@ -54,11 +60,13 @@ class PPONetwork(nn.Module):
 
         self.critic_input = InputNetwork(output_dim=64)
         self.critic = nn.Sequential(
-            nn.Linear(64, 64),
+            nn.Linear(64, 256),
             nn.Tanh(),
-            nn.Linear(64, 64),
+            nn.Linear(256, 256),
             nn.Tanh(),
-            nn.Linear(64, 1)
+            nn.Linear(256, 256),
+            nn.Tanh(),
+            nn.Linear(256, 1)
         )
 
     @staticmethod
@@ -83,7 +91,8 @@ class PPONetwork(nn.Module):
         self,
         id_and_tick: Tensor,
         tile_data: Tensor,
-        inventory_data: Tensor,
+        items_discrete: Tensor,
+        items_continuous: Tensor,
         entity_data: Tensor,
         *masks: Tensor
         ) -> tuple[dict[str, Tensor], Tensor]:
@@ -93,7 +102,8 @@ class PPONetwork(nn.Module):
         Args:
             id_and_tick: Tensor of shape (batch_size, 7)
             tile_data: Tensor of shape (batch_size, 15, 15, 24)
-            inventory_data: Tensor of shape (batch_size, 12, 18)
+            items_discrete: Tensor of shape (batch_size, 12, 2) (int64)
+            items_continuous: Tensor of shape (batch_size, 12, 14)
             entity_data: Tensor of shape (batch_size, 100, 32)
             masks: List of masks for some action types, each of shape (batch_size, action_dim)
 
@@ -112,7 +122,7 @@ class PPONetwork(nn.Module):
             "Destroy": masks[3]
         }
 
-        x = self.input_network(id_and_tick.clone(), tile_data.clone(), inventory_data.clone(), entity_data.clone())
+        x = self.input_network(id_and_tick.clone(), tile_data.clone(), items_discrete.clone(), items_continuous.clone(), entity_data.clone())
         hidden: Tensor = self.hidden_network(x)
         action_probs = {}
         for action_type in self.action_types():
@@ -128,6 +138,6 @@ class PPONetwork(nn.Module):
 
             action_probs[action_type] = output
 
-        x_critic = self.critic_input(id_and_tick.clone(), tile_data.clone(), inventory_data.clone(), entity_data.clone())
+        x_critic = self.critic_input(id_and_tick.clone(), tile_data.clone(), items_discrete.clone(), items_continuous.clone(), entity_data.clone())
         value = self.critic(x_critic)
         return action_probs, value

@@ -35,13 +35,15 @@ def observations_to_network_inputs(obs: Observations, device: torch.device) \
 		device=device
 	).unsqueeze(0)
 
-	inventory = torch.tensor(
-		np.concatenate([
-			obs.inventory,
-			obs.action_targets.use_inventory_item[:12].reshape(12, 1),
-			obs.action_targets.destroy_inventory_item[:12].reshape(12, 1)
-		], axis=1).ravel(),
+	continuous, discrete = _encode_inventory(obs)
+	inventory_continuous = torch.tensor(
+		continuous,
 		dtype=torch.float32,
+		device=device
+	).unsqueeze(0)
+	inventory_discrete = torch.tensor(
+		discrete,
+		dtype=torch.int64,
 		device=device
 	).unsqueeze(0)
 
@@ -58,7 +60,7 @@ def observations_to_network_inputs(obs: Observations, device: torch.device) \
 		torch.tensor(obs.action_targets.destroy_inventory_item, dtype=torch.float32, device=device).unsqueeze(0)
 	]
 
-	return id_and_tick, tiles, inventory, self_data, *masks
+	return id_and_tick, tiles, inventory_discrete, inventory_continuous, self_data, *masks
 
 
 def _encode_id(single_id: int) -> np.ndarray:
@@ -203,3 +205,36 @@ def _get_entity_data(obs: Observations) -> tuple[np.ndarray, np.ndarray]:
 				my_data.row / _map_size_y
 			])
     	])
+
+
+def _encode_inventory(obs: Observations) -> tuple[np.ndarray, np.ndarray]:
+	discrete_idxs = [1, 14]
+	discrete_offset = np.array([2, 0])
+	continuous_idxs = [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 15]
+	continuous_scale = np.array(
+		[
+			1 / 10,
+			1 / 10,
+			1 / 10,
+			1 / 100,
+			1 / 100,
+			1 / 100,
+			1 / 40,
+			1 / 40,
+			1 / 40,
+			1 / 100,
+			1 / 100,
+			1 / 100,
+		]
+	)
+ 
+	inventory = obs.inventory
+	discrete = inventory[:, discrete_idxs] + discrete_offset
+ 
+	continuous = np.concatenate([
+		inventory[:, continuous_idxs] * continuous_scale,
+		obs.action_targets.use_inventory_item[:12].reshape(12, 1),
+		obs.action_targets.destroy_inventory_item[:12].reshape(12, 1)
+	], axis=1)
+
+	return continuous, discrete # (12, 14), (12, 2)

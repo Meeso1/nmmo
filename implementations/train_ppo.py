@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from pettingzoo import ParallelEnv
 
+from implementations.CustomRewardBase import CustomRewardBase
 from implementations.PpoAgent import AgentBase, PPOAgent
 from implementations.Observations import Observations, to_observations
 
@@ -32,6 +33,7 @@ def train_ppo(
     save_every: int | None = 100,
     agent_name: str | None = None,
     start_state_name: str | None = None,
+    custom_reward: CustomRewardBase | None = None,
     callbacks: list[EvaluationCallback] | None = None
 ) -> None:
     if callbacks is None:
@@ -58,6 +60,8 @@ def train_ppo(
         }
 
         total_rewards: dict[int, float] = {agent_id: 0.0 for agent_id in env.agents}
+        if custom_reward is not None:
+            custom_reward.reset()
         
         step = 0
         while env.agents:  # While there are active agents
@@ -77,6 +81,8 @@ def train_ppo(
             }
 
             states, rewards, terminations, truncations, _ = env.step(env_actions)
+            if custom_reward is not None:
+                rewards = custom_reward.get_rewards(observations, rewards, terminations, truncations)
             
             for callback in callbacks:
                 callback.step(observations, env_actions, episode, step)
