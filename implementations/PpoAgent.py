@@ -141,12 +141,15 @@ class PPOAgent(AgentBase):
         old_log_prob_tensors = {name: torch.cat(lps, dim=0).to(self.device) for name, lps in all_old_log_probs.items()}
 
         for _ in range(self.epochs):
-            for i in range(0, len(network_inputs), self.batch_size):
-                indices = range(i, min(i+self.batch_size, len(network_inputs)))
-                batch_inputs = [input[indices] for input in stacked_inputs]
-                batch_returns_tensor = returns_tensor[indices]
-                batch_action_tensors = {name: acts[indices] for name, acts in action_tensors.items()}
-                batch_old_log_prob_tensors = {name: lps[indices] for name, lps in old_log_prob_tensors.items()}
+            indices = np.arange(len(network_inputs))
+            np.random.shuffle(indices)
+
+            for i in range(0, len(indices), self.batch_size):
+                batch_indices = indices[i:i+self.batch_size]
+                batch_inputs = [input[batch_indices] for input in stacked_inputs]
+                batch_returns_tensor = returns_tensor[batch_indices]
+                batch_action_tensors = {name: acts[batch_indices] for name, acts in action_tensors.items()}
+                batch_old_log_prob_tensors = {name: lps[batch_indices] for name, lps in old_log_prob_tensors.items()}
 
                 new_action_probs: list[Tensor]
                 values: Tensor
