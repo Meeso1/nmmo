@@ -177,7 +177,7 @@ class PPOAgent(AgentBase):
                     actor_loss += -torch.min(surr1, surr2).mean()
                     
                     # Save losses for history
-                    epoch_actor_losses[batch_indices] = -torch.min(surr1, surr2)
+                    epoch_actor_losses[batch_indices] = -torch.min(surr1, surr2).mean(dim=0)
                     epoch_critic_losses[batch_indices] = 0.5 * (values.squeeze() - batch_returns_tensor.detach()).pow(2)
 
                 self.optimizer.zero_grad()

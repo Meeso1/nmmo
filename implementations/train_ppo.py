@@ -176,7 +176,7 @@ def evaluate_agent(
             step += 1
             
         for callback in callbacks:
-            callback.episode_end(episode, total_rewards)
+            callback.episode_end(episode, total_rewards, ([], [], []))
 
         avg_reward = sum(total_rewards.values()) / len(total_rewards)
         avg_rewards.append(avg_reward)
