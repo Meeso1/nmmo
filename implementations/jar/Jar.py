@@ -114,6 +114,19 @@ class Jar:
         """
         full_path = self._get_latest_file(name)
         os.remove(full_path)
+        
+    def remove_all_but_latest(self, name: str) -> None:
+        """
+        Delete all objects with the given name, except the most recent one.
+
+        Args:
+            name (str): The name of the object.
+        """
+        latest = self._get_latest_file(name)
+        files = self._find_files(name)
+        for f in files:
+            if f != latest:
+                os.remove(f)
 
     def remove_all(self, name: str) -> None:
         """
