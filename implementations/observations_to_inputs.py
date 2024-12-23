@@ -4,6 +4,7 @@ from implementations.Observations import Observations, EntityData
 from torch import Tensor
 import numpy as np
 from nmmo.core.config import Config, Resource, Progression
+#from nmmo import material
 
 
 _map_size_x = 128
@@ -16,11 +17,11 @@ def observations_to_network_inputs(obs: Observations, device: torch.device) \
 	-> tuple[Tensor, Tensor, Tensor, Tensor]:
 	id_and_tick = torch.tensor(
 		np.concatenate([
-      		_encode_id(obs.agent_id),
-        	np.array([
-            	np.log(obs.current_tick+1)
-            ])
-        ]),
+	  		_encode_id(obs.agent_id),
+			np.array([
+				np.log(obs.current_tick+1)
+			])
+		]),
 		dtype=torch.float32,
 		device=device
 	).unsqueeze(0)
@@ -28,7 +29,7 @@ def observations_to_network_inputs(obs: Observations, device: torch.device) \
 	cnn_entiy_data, self_data = _get_entity_data(obs)
 	tiles = torch.tensor(
 		np.concatenate([
-			obs.tiles.reshape(_view_size, _view_size, 3),
+			_encode_tiles(obs.tiles),
 			cnn_entiy_data
 		], axis=2),
 		dtype=torch.float32,
@@ -192,19 +193,19 @@ def _get_entity_data(obs: Observations) -> tuple[np.ndarray, np.ndarray]:
 			np.concatenate([
 				entity.to_input_array(),
 				np.array([
-        			obs.action_targets.attack_target[me_idx],
+					obs.action_targets.attack_target[me_idx],
 					np.sqrt((entity.row - me.row) ** 2 + (entity.col - me.col) ** 2) / np.sqrt(_view_radius ** 2 + _view_radius ** 2),
-              	]),
-    		])
+			  	]),
+			])
 
 	my_data = SingleEntity.from_entity_data(obs.entities, me_idx)
 	return cnn_data, np.concatenate([
-    		my_data.to_input_array(),
+			my_data.to_input_array(),
 			np.array([
 				my_data.col / _map_size_x,
 				my_data.row / _map_size_y
 			])
-    	])
+		])
 
 
 def _encode_inventory(obs: Observations) -> tuple[np.ndarray, np.ndarray]:
@@ -238,3 +239,15 @@ def _encode_inventory(obs: Observations) -> tuple[np.ndarray, np.ndarray]:
 	], axis=1)
 
 	return continuous, discrete # (12, 14), (12, 2)
+
+
+def _encode_tiles(tiles: np.ndarray) -> np.ndarray:
+	"""
+	Encode tiles into a (15, 15, 16) array
+	"""
+	types = tiles[:, :, 2].reshape(_view_size, _view_size, 1),
+	result = np.zeros((_view_size, _view_size, 16))
+	for i in range(16):
+		result[:, :, i] = (types == i).astype(np.float32)	
+
+	return result
