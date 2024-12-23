@@ -13,10 +13,10 @@ class InputNetwork(nn.Module):
         )
 
         self.tiles_and_entities = nn.Sequential(
-            nn.Conv2d(in_channels=(21+16), out_channels=16, kernel_size=3, padding=1),  # (batch_size, 37, 15, 15) -> (batch_size, 16, 15, 15)
+            nn.Conv2d(in_channels=(21+19), out_channels=32, kernel_size=3, padding=1),  # (batch_size, 40, 15, 15) -> (batch_size, 32, 15, 15)
             nn.ReLU(),
             nn.MaxPool2d(2),  # (batch_size, 16, 15, 15) -> (batch_size, 16, 7, 7)
-            nn.Conv2d(in_channels=16, out_channels=32, kernel_size=3, padding=1),  # (batch_size, 16, 7, 7) -> (batch_size, 32, 7, 7)
+            nn.Conv2d(in_channels=32, out_channels=32, kernel_size=3, padding=1),  # (batch_size, 32, 7, 7) -> (batch_size, 32, 7, 7)
             nn.ReLU(),
             nn.MaxPool2d(2),  # (batch_size, 32, 7, 7) -> (batch_size, 32, 3, 3)
             nn.Flatten(),     # (batch_size, 32, 3, 3) -> (batch_size, 288)
@@ -69,7 +69,7 @@ class InputNetwork(nn.Module):
 
         Args:
             id_and_tick: Tensor of shape (batch_size, 7)
-            tile_and_entity_data: Tensor of shape (batch_size, 15, 15, 37)
+            tile_and_entity_data: Tensor of shape (batch_size, 15, 15, 40)
             items_discrete: Tensor of shape (batch_size, 12, 2) (int64)
             items_continuous: Tensor of shape (batch_size, 12, 14)
             self_data: Tensor of shape (batch_size, 21)

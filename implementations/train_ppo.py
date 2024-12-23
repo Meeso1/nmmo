@@ -118,7 +118,7 @@ def train_ppo(
         avg_rewards.append(avg_reward)
 
         if print_every is not None and (episode % print_every == 0 or episode == episodes):
-            print(f"Episode {episode}, Average Reward: {avg_reward:.2f}")
+            print(f"Episode {episode}, Average Reward: {avg_reward:.4f}")
 
         if save_every is not None and (episode % save_every == 0 or episode == episodes):
             agent.save(f"{agent_name}_at_ep{episode}")
@@ -180,4 +180,4 @@ def evaluate_agent(
 
         avg_reward = sum(total_rewards.values()) / len(total_rewards)
         avg_rewards.append(avg_reward)
-        print(f"Episode {episode}, Average Reward: {avg_reward:.2f}")
+        print(f"Episode {episode}, Average Reward: {avg_reward:.4f}")

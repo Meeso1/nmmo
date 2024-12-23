@@ -4,7 +4,7 @@ from implementations.Observations import Observations, EntityData
 from torch import Tensor
 import numpy as np
 from nmmo.core.config import Config, Resource, Progression
-#from nmmo import material
+from nmmo import material
 
 
 _map_size_x = 128
@@ -243,11 +243,17 @@ def _encode_inventory(obs: Observations) -> tuple[np.ndarray, np.ndarray]:
 
 def _encode_tiles(tiles: np.ndarray) -> np.ndarray:
 	"""
-	Encode tiles into a (15, 15, 16) array
+	Encode tiles into a (15, 15, 19) array
 	"""
-	types = tiles[:, :, 2].reshape(_view_size, _view_size, 1),
-	result = np.zeros((_view_size, _view_size, 16))
+	types = tiles[:, 2].reshape(_view_size, _view_size)
+	result = np.zeros((_view_size, _view_size, 19))
 	for i in range(16):
-		result[:, :, i] = (types == i).astype(np.float32)	
+		result[:, :, i] = 1*(types == i)
+  
+	for x in range(15):
+		for y in range(15):
+			result[x, y, 16] = 1 if types[x, y] in material.Impassible else 0
+			result[x, y, 17] = 1 if types[x, y] in material.Habitable else 0
+			result[x, y, 18] = 1 if types[x, y] in material.Harvestable else 0
 
 	return result
