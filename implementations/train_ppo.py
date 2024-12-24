@@ -116,6 +116,9 @@ def train_ppo(
 
         avg_reward = sum(total_rewards.values()) / len(total_rewards)
         avg_rewards.append(avg_reward)
+        
+        if episode == 1:
+            print(f"{len(total_rewards)} agents in the environment")
 
         if print_every is not None and (episode % print_every == 0 or episode == episodes):
             print(f"Episode {episode}, Average Reward: {avg_reward:.4f}")

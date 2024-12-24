@@ -82,6 +82,8 @@ class PPOAgent(AgentBase):
         states: dict[int, Observations]
     ) -> dict[int, tuple[dict[str, dict[str, int]], dict[str, Tensor], dict[str, Tensor]]]:
         actions = {}
+        
+        self.network.eval()
 
         for agent_id, observations in states.items():
             inputs = observations_to_network_inputs(observations, self.device)
@@ -114,6 +116,8 @@ class PPOAgent(AgentBase):
         all_states: list[Observations] = []
         all_actions: dict[str, list[Tensor]] = {type: [] for type in PPONetwork.action_types()}
         all_old_log_probs: dict[str, list[Tensor]] = {type: [] for type in PPONetwork.action_types()}
+        
+        self.network.train()
 
         for agent_id in states.keys():
             R = 0.0
@@ -184,7 +188,7 @@ class PPOAgent(AgentBase):
                 actor_loss.backward()
                 self.optimizer.step()
 
-                critic_loss: Tensor = 0.5 * torch.nn.MSELoss()(values.squeeze(), batch_returns_tensor.detach())
+                critic_loss: Tensor = 0.5 * torch.nn.MSELoss()(values.squeeze(dim=-1), batch_returns_tensor.detach())
                 self.optimizer.zero_grad()
                 critic_loss.backward()
                 self.optimizer.step()
