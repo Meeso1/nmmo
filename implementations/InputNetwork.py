@@ -24,25 +24,6 @@ class InputNetwork(nn.Module):
             nn.ReLU()
         )
 
-        self.item_embedding = nn.Sequential(
-            nn.Embedding(256, 32),      # (batch_size, 12, 2) -> (batch_size, 12, 2, 32)
-            nn.Flatten(start_dim=2)     # (batch_size, 12, 2, 32) -> (batch_size, 12, 2*32)
-        )
-        self.item_network = nn.Sequential(
-            nn.Linear(2*32 + 14, 64),
-            nn.ReLU(),
-            nn.Linear(64, 32),
-            nn.ReLU(),
-            nn.LayerNorm(32)
-        )
-
-        self.inventory = nn.Sequential(
-            nn.Flatten(),
-            nn.Linear(12*32, 64),
-            nn.ReLU(),
-            nn.Linear(64, 64),
-            nn.ReLU()
-        )
 
         self.self_data = nn.Sequential(
             nn.Linear(21, 64),
@@ -52,7 +33,7 @@ class InputNetwork(nn.Module):
         )
 
         self.combined = nn.Sequential(
-            nn.Linear(16 + 64 + 64 + 64, output_dim),
+            nn.Linear(16 + 64 + 64, output_dim),
             nn.ReLU()
         )
 
@@ -60,8 +41,6 @@ class InputNetwork(nn.Module):
         self,
         id_and_tick: Tensor,
         tile_and_entity_data: Tensor,
-        items_discrete: Tensor,
-        items_continuous: Tensor,
         self_data: Tensor
         ) -> Tensor:
         """
@@ -84,14 +63,9 @@ class InputNetwork(nn.Module):
         x2 = self.tiles_and_entities(x2)
         x2 = x2.view(-1, 64)
 
-        x3 = self.item_embedding(items_discrete.clip(0, 255))
-        x3 = torch.cat((x3, items_continuous), dim=2)
-        x3 = self.item_network(x3)        
-        x3 = self.inventory(x3)
-        x3 = x3.view(-1, 64)
 
         x4 = self.self_data(self_data)
         x4 = x4.view(-1, 64)
 
-        x = torch.cat((x1, x2, x3, x4), dim=1)
+        x = torch.cat((x1, x2, x4), dim=1)
         return self.combined(x)

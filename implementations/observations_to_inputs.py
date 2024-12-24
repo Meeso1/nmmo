@@ -36,17 +36,6 @@ def observations_to_network_inputs(obs: Observations, device: torch.device) \
 		device=device
 	).unsqueeze(0)
 
-	continuous, discrete = _encode_inventory(obs)
-	inventory_continuous = torch.tensor(
-		continuous,
-		dtype=torch.float32,
-		device=device
-	).unsqueeze(0)
-	inventory_discrete = torch.tensor(
-		discrete,
-		dtype=torch.int64,
-		device=device
-	).unsqueeze(0)
 
 	self_data = torch.tensor(
 		self_data,
@@ -56,12 +45,10 @@ def observations_to_network_inputs(obs: Observations, device: torch.device) \
 
 	masks = [
 		torch.tensor(obs.action_targets.move_direction, dtype=torch.float32, device=device).unsqueeze(0),
-		torch.tensor(obs.action_targets.attack_style, dtype=torch.float32, device=device).unsqueeze(0),
-		torch.tensor(obs.action_targets.use_inventory_item, dtype=torch.float32, device=device).unsqueeze(0),
-		torch.tensor(obs.action_targets.destroy_inventory_item, dtype=torch.float32, device=device).unsqueeze(0)
+		torch.tensor(obs.action_targets.attack_style, dtype=torch.float32, device=device).unsqueeze(0)
 	]
 
-	return id_and_tick, tiles, inventory_discrete, inventory_continuous, self_data, *masks
+	return id_and_tick, tiles, self_data, *masks
 
 
 def _encode_id(single_id: int) -> np.ndarray:

@@ -68,12 +68,6 @@ class PPOAgent(AgentBase):
                 "Style": sampled_outputs["AttackStyle"].item(),
                 "Target": 100 if sampled_outputs["AttackOrNot"].item() == 0
                 else PPOAgent.get_attack_target_index(attack_target_pos[0], attack_target_pos[1], state)
-            },
-            "Use": {
-                "InventoryItem": sampled_outputs["Use"].item()
-            },
-            "Destroy": {
-                "InventoryItem": sampled_outputs["Destroy"].item()
             }
         }
 

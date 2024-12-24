@@ -12,9 +12,7 @@ class PPONetwork(nn.Module):
             "Move": 5,
             "AttackStyle": 3,
             "AttackTargetPos": 4,
-            "AttackOrNot": 2,
-            "Use": 13,
-            "Destroy": 13
+            "AttackOrNot": 2
         }
 
         self.input_network = InputNetwork(output_dim=128)
@@ -49,12 +47,6 @@ class PPONetwork(nn.Module):
             "AttackOrNot": nn.Sequential(
                 nn.Linear(64, self.action_dims["AttackOrNot"]),
                 nn.Softmax(dim=-1)
-            ),
-            "Use": nn.Sequential(
-                nn.Linear(64, self.action_dims["Use"])
-            ),
-            "Destroy": nn.Sequential(
-                nn.Linear(64, self.action_dims["Destroy"])
             )
         })
 
@@ -71,7 +63,7 @@ class PPONetwork(nn.Module):
 
     @staticmethod
     def action_types() -> list[str]:
-        return ["Move", "AttackStyle", "AttackTargetPos", "AttackOrNot", "Use", "Destroy"]
+        return ["Move", "AttackStyle", "AttackTargetPos", "AttackOrNot"]
 
     @staticmethod
     def get_distributions(action_probs: dict[str, Tensor]) -> dict[str, torch.distributions.Distribution]:
@@ -82,17 +74,13 @@ class PPONetwork(nn.Module):
                 action_probs["AttackTargetPos"][:, [0, 1]] * 7.5,
                 (action_probs["AttackTargetPos"][:, [2, 3]] + 1) / 2 * 7.5,
                 1e-5),
-            "AttackOrNot": torch.distributions.Categorical(action_probs["AttackOrNot"]),
-            "Use": torch.distributions.Categorical(action_probs["Use"]),
-            "Destroy": torch.distributions.Categorical(action_probs["Destroy"])
+            "AttackOrNot": torch.distributions.Categorical(action_probs["AttackOrNot"])
         }
 
     def forward(
         self,
         id_and_tick: Tensor,
         tile_data: Tensor,
-        items_discrete: Tensor,
-        items_continuous: Tensor,
         entity_data: Tensor,
         *masks: Tensor
         ) -> tuple[dict[str, Tensor], Tensor]:
@@ -112,17 +100,15 @@ class PPONetwork(nn.Module):
             - Dict of action probability tensors, each of shape (batch_size, action_dim)
             - Value tensor of shape (batch_size, 1)
         """
-        if len(masks) != 4:
-            raise ValueError("Expected 4 action mask tensors, got " + str(len(masks)))
+        if len(masks) != 2:
+            raise ValueError("Expected 2 action mask tensors, got " + str(len(masks)))
 
         action_masks = {
             "Move": masks[0],
-            "AttackStyle": masks[1],
-            "Use": masks[2],
-            "Destroy": masks[3]
+            "AttackStyle": masks[1]
         }
 
-        x = self.input_network(id_and_tick.clone(), tile_data.clone(), items_discrete.clone(), items_continuous.clone(), entity_data.clone())
+        x = self.input_network(id_and_tick.clone(), tile_data.clone(), entity_data.clone())
         hidden: Tensor = self.hidden_network(x)
         action_probs = {}
         for action_type in self.action_types():
@@ -138,6 +124,6 @@ class PPONetwork(nn.Module):
 
             action_probs[action_type] = output
 
-        x_critic = self.critic_input(id_and_tick.clone(), tile_data.clone(), items_discrete.clone(), items_continuous.clone(), entity_data.clone())
+        x_critic = self.critic_input(id_and_tick.clone(), tile_data.clone(),  entity_data.clone())
         value = self.critic(x_critic)
         return action_probs, value
