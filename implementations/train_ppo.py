@@ -46,6 +46,7 @@ def train_ppo(
     agent_name = agent_name or 'ppo_agent'
     agent = PPOAgent.load(start_state_name) if start_state_name is not None else PPOAgent()
     avg_rewards = []
+    last_print_episode = 0
 
     for episode in range(1, episodes+1):
         for callback in callbacks:
@@ -121,7 +122,9 @@ def train_ppo(
             print(f"{len(total_rewards)} agents in the environment")
 
         if print_every is not None and (episode % print_every == 0 or episode == episodes):
-            print(f"Episode {episode}, Average Reward: {avg_reward:.4f}")
+            avg_reward_since_last_print = sum(avg_rewards[last_print_episode:]) / (episode - last_print_episode)
+            print(f"Episode {episode}, Average Reward: {avg_reward_since_last_print:.4f} (Episode Reward: {avg_reward:.4f})")
+            last_print_episode = episode
 
         if save_every is not None and (episode % save_every == 0 or episode == episodes):
             agent.save(f"{agent_name}_at_ep{episode}")

@@ -126,7 +126,7 @@ class PPONetwork(nn.Module):
         hidden: Tensor = self.hidden_network(x)
         action_probs = {}
         for action_type in self.action_types():
-            output = self.action_heads[action_type](hidden)
+            output = self.action_heads[action_type](hidden.clone())
             if action_type in action_masks:
                 # Change the 0s in the mask to -inf, and the 1s to 0
                 # This way, we can add the mask to the output to zero out the invalid actions
