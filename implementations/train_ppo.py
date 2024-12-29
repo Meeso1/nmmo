@@ -14,6 +14,7 @@ def train_ppo(
     save_every: int | None = 100,
     agent_name: str | None = None,
     start_state_name: str | None = None,
+    start_episode: int = 1,
     custom_reward: CustomRewardBase | None = None,
     callbacks: list[EvaluationCallback] | None = None
 ) -> None:
@@ -25,7 +26,7 @@ def train_ppo(
     avg_rewards = []
     last_print_episode = 0
 
-    for episode in range(1, episodes+1):
+    for episode in range(start_episode, episodes+start_episode):
         for callback in callbacks:
             callback.episode_start(episode)
         
@@ -98,12 +99,12 @@ def train_ppo(
         if episode == 1:
             print(f"{len(total_rewards)} agents in the environment")
 
-        if print_every is not None and (episode % print_every == 0 or episode == episodes):
+        if print_every is not None and (episode % print_every == 0 or episode == episodes+start_episode-1):
             avg_reward_since_last_print = sum(avg_rewards[last_print_episode:]) / (episode - last_print_episode)
             print(f"Episode {episode}, Average Reward: {avg_reward_since_last_print:.4f} (Episode Reward: {avg_reward:.4f})")
             last_print_episode = episode
 
-        if save_every is not None and (episode % save_every == 0 or episode == episodes):
+        if save_every is not None and (episode % save_every == 0 or episode == episodes+start_episode-1):
             agent.save(f"{agent_name}_at_ep{episode}")
 
 
