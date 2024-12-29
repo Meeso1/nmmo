@@ -17,10 +17,19 @@ class RandomAgent(AgentBase):
         states: dict[int, Observations]
     ) -> dict[int, tuple[dict[str, dict[str, int]], dict[str, Tensor], dict[str, Tensor]]]:
         actions = {}
-        for agent_id, _ in states.items():
+        for agent_id, obs in states.items():
+            masks = {
+                "Move": obs.action_targets.move_direction,
+                "Attack style": obs.action_targets.attack_style,
+                "Attack target": obs.action_targets.attack_target,
+                "Use": obs.action_targets.use_inventory_item,
+                "Destroy": obs.action_targets.destroy_inventory_item
+            }
+            
+            # for each mask, choose a random index where the mask is 1
             items = {
-                key: np.random.randint(0, choices)
-                for key, choices in self.action_dims.items()
+                key: np.random.choice(np.where(mask == 1)[0]) 
+                for key, mask in masks.items()
             }
                         
             actions[agent_id] = ({
