@@ -2,7 +2,6 @@ from pettingzoo import ParallelEnv
 
 from implementations.CustomRewardBase import CustomRewardBase
 from implementations.PpoAgent import AgentBase
-from implementations.Observations import to_observations
 from implementations.EvaluationCallback import EvaluationCallback
 
 
@@ -134,7 +133,7 @@ def evaluate_agent(
         step = 0
         while env.agents:
             observations = { 
-                agent_id: to_observations(states) 
+                agent_id: agent.get_observations_from_state(states) 
                 for agent_id, states in states.items()
             }
             

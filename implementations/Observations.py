@@ -1,6 +1,5 @@
 from dataclasses import dataclass
 import numpy as np
-from nmmo.entity.entity import EntityState
 
 
 @dataclass(frozen=True)
@@ -56,47 +55,3 @@ class Observations:
     inventory: np.ndarray # 12x16 (12 slots, 16 possible items, one-hot encoded)
     entities: EntityData
     action_targets: ActionTargets
-    
-    def to_dict(self) -> dict:
-        return {
-            "AgentId": self.agent_id,
-            "CurrentTick": self.current_tick,
-            "Inventory": self.inventory,
-            "Tile": self.tiles,
-            "Entity": np.column_stack([getattr(self.entities, attr) for attr in EntityState.State.attr_name_to_col]),
-            "ActionTargets": {
-                "Move": {
-                    "Direction": self.action_targets.move_direction
-                },
-                "Attack": {
-                    "Style": self.action_targets.attack_style,
-                    "Target": self.action_targets.attack_target
-                },
-                "Use": {
-                    "InventoryItem": self.action_targets.use_inventory_item
-                },
-                "Destroy": {
-                    "InventoryItem": self.action_targets.destroy_inventory_item
-                }
-            }
-        }
-
-
-def to_observations(obs: dict[str]) -> Observations:
-    return Observations(
-        agent_id=obs["AgentId"],
-        current_tick=obs["CurrentTick"],
-        inventory=obs["Inventory"],
-        tiles=obs["Tile"],
-        entities=EntityData(
-            **{feature: obs["Entity"][:, idx] 
-            for feature, idx in EntityState.State.attr_name_to_col.items()}
-        ),
-        action_targets=ActionTargets(
-            move_direction=obs["ActionTargets"]["Move"]["Direction"],
-            attack_style=obs["ActionTargets"]["Attack"]["Style"],
-            attack_target=obs["ActionTargets"]["Attack"]["Target"],
-            use_inventory_item=obs["ActionTargets"]["Use"]["InventoryItem"],
-            destroy_inventory_item=obs["ActionTargets"]["Destroy"]["InventoryItem"]
-        )
-    )

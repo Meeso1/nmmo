@@ -6,7 +6,8 @@ import numpy as np
 from torch import Tensor
 
 from implementations.PpoNetwork import PPONetwork
-from implementations.Observations import Observations, to_observations
+from implementations.Observations import Observations
+from implementations.to_observations import to_observations
 from implementations.observations_to_inputs import observations_to_network_inputs
 from implementations.jar import Jar
 
