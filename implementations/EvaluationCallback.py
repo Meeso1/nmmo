@@ -1,12 +1,12 @@
 from abc import ABC, abstractmethod
-from implementations.Observations import Observations
+from typing import Any
 
 
 class EvaluationCallback(ABC):
     @abstractmethod
     def step(
         self,
-        observations_per_agent: dict[int, Observations], 
+        observations_per_agent: dict[int, Any], 
         actions_per_agent: dict[int, dict[str, dict[str, int]]], 
         episode: int, 
         step: int) -> None:

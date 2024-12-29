@@ -1,19 +1,19 @@
 from pettingzoo import ParallelEnv
 
 from implementations.CustomRewardBase import CustomRewardBase
-from implementations.PpoAgent import AgentBase, PPOAgent
+from implementations.PpoAgent import AgentBase
 from implementations.Observations import to_observations
 from implementations.EvaluationCallback import EvaluationCallback
 
 
 def train_ppo(
     env: ParallelEnv,
+    agent: AgentBase,
     *,
     episodes: int = 1000,
     print_every: int | None = 1,
     save_every: int | None = 100,
     agent_name: str | None = None,
-    start_state_name: str | None = None,
     start_episode: int = 1,
     custom_reward: CustomRewardBase | None = None,
     callbacks: list[EvaluationCallback] | None = None
@@ -22,7 +22,6 @@ def train_ppo(
         callbacks = []
     
     agent_name = agent_name or 'ppo_agent'
-    agent = PPOAgent.load(start_state_name) if start_state_name is not None else PPOAgent()
     avg_rewards = []
     last_print_episode = 0
 
@@ -30,6 +29,9 @@ def train_ppo(
         for callback in callbacks:
             callback.episode_start(episode)
         
+        if custom_reward is not None:
+            custom_reward.reset()
+
         states, _ = env.reset()
         episode_data = {
             agent_id: {
@@ -43,13 +45,11 @@ def train_ppo(
         }
 
         total_rewards: dict[int, float] = {agent_id: 0.0 for agent_id in env.agents}
-        if custom_reward is not None:
-            custom_reward.reset()
         
         step = 0
         while env.agents:  # While there are active agents
             observations = {
-                agent_id: to_observations(agent_state)
+                agent_id: agent.get_observations_from_state(agent_state)
                 for agent_id, agent_state in states.items()
             }
             action_data = agent.get_actions({

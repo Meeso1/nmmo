@@ -1,3 +1,4 @@
+from typing import Any
 import numpy as np
 from torch import Tensor
 import nmmo
@@ -61,9 +62,9 @@ def get_avg_lifetime_for_random_agent(config: config.Default, *, retries: int = 
             self.avg_lifetimes = []
             self.current_lifetimes = {}
             
-        def step(self, observations_per_agent: dict[int, Observations], actions_per_agent: dict[int, dict[str, dict[str, int]]], episode: int, step: int) -> None:
+        def step(self, observations_per_agent: dict[int, Any], actions_per_agent: dict[int, dict[str, dict[str, int]]], episode: int, step: int) -> None:
             if step == 0:
-                for agent_id in observations_per_agent:
+                for agent_id in observations_per_agent.keys():
                     self.current_lifetimes[agent_id] = 0
                     
             for agent_id in observations_per_agent.keys():
@@ -99,7 +100,7 @@ def get_avg_reward_for_random_agent(config: config.Default, *, reward: CustomRew
         def episode_start(self, episode: int) -> None:
             pass
         
-        def step(self, observations_per_agent: dict[int, Observations], actions_per_agent: dict[int, dict[str, dict[str, int]]], episode: int, step: int) -> None:
+        def step(self, observations_per_agent: dict[int, Any], actions_per_agent: dict[int, dict[str, dict[str, int]]], episode: int, step: int) -> None:
             pass
            
     callback = Callback() 

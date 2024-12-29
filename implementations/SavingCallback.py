@@ -26,6 +26,10 @@ class SavingCallback(EvaluationCallback):
     ) -> None:
         if step == 0:
             self.lifetimes_per_agent = {agent_id: 0 for agent_id in observations_per_agent.keys()}
+            
+        for agent_id, obs in observations_per_agent.items():
+            if not isinstance(obs, Observations):
+                raise ValueError(f"Expected observations for agent {agent_id} to be of type Observations, got {type(obs)}")
         
         self.current_episode.append((
             {agent_id: obs.to_dict() for agent_id, obs in observations_per_agent.items() if agent_id in self.saved_agent_ids},

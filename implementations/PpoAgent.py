@@ -1,12 +1,12 @@
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from typing import Any
 import torch
 from torch import optim
 import numpy as np
 from torch import Tensor
 
 from implementations.PpoNetwork import PPONetwork
-from implementations.Observations import Observations, EntityData
+from implementations.Observations import Observations, to_observations
 from implementations.observations_to_inputs import observations_to_network_inputs
 from implementations.jar import Jar
 
@@ -17,6 +17,21 @@ class AgentBase(ABC):
         -> dict[int, tuple[dict[str, dict[str, int]], dict[str, Tensor], dict[str, Tensor]]]:
         pass
 
+    def update(
+        self,
+        states: dict[int, list[Observations]],
+        actions: dict[int, list[dict[str, Tensor]]],
+        rewards: dict[int, list[float]],
+        log_probs: dict[int, list[dict[str, Tensor]]],
+        dones: dict[int, list[bool]]
+    ) -> tuple[list[float], list[float], list[float]]:
+        pass
+
+    def save(self, name: str | None = None) -> None:
+        pass
+
+    def get_observations_from_state(self, obs: dict[str, Any]) -> Any:
+        return to_observations(obs)
 
 class PPOAgent(AgentBase):
     def __init__(
@@ -39,7 +54,7 @@ class PPOAgent(AgentBase):
         self.optimizer = optim.Adam(self.network.parameters(), lr=learning_rate)
 
     @staticmethod
-    def get_attack_target_index(x: float, y: float, state: Observations) -> int:
+    def _get_attack_target_index(x: float, y: float, state: Observations) -> int:
         if np.all(state.entities.id != state.agent_id):
             return 100
 
@@ -58,7 +73,7 @@ class PPOAgent(AgentBase):
         return attackable_idxs[np.argmin(distances)]
 
     @staticmethod
-    def sampled_outputs_to_action_dict(sampled_outputs: dict[str, Tensor], state: Observations) -> dict[str, dict[str, int]]:
+    def _sampled_outputs_to_action_dict(sampled_outputs: dict[str, Tensor], state: Observations) -> dict[str, dict[str, int]]:
         attack_target_pos = sampled_outputs["AttackTargetPos"][0].cpu().numpy()
         return {
             "Move": {
@@ -67,7 +82,7 @@ class PPOAgent(AgentBase):
             "Attack": {
                 "Style": sampled_outputs["AttackStyle"].item(),
                 "Target": 100 if sampled_outputs["AttackOrNot"].item() == 0
-                else PPOAgent.get_attack_target_index(attack_target_pos[0], attack_target_pos[1], state)
+                else PPOAgent._get_attack_target_index(attack_target_pos[0], attack_target_pos[1], state)
             },
             "Use": {
                 "InventoryItem": sampled_outputs["Use"].item()
@@ -98,7 +113,7 @@ class PPOAgent(AgentBase):
                     log_probs[name] = log_prob.sum(dim=-1)
 
             actions[agent_id] = (
-                PPOAgent.sampled_outputs_to_action_dict(agent_actions, observations),
+                PPOAgent._sampled_outputs_to_action_dict(agent_actions, observations),
                 agent_actions,
                 log_probs
             )
