@@ -14,7 +14,7 @@ _view_size = 2 * _view_radius + 1
 
 
 def observations_to_network_inputs(obs: Observations, device: torch.device) \
-	-> tuple[Tensor, Tensor, Tensor, Tensor]:
+	-> tuple[Tensor, Tensor, Tensor, Tensor, Tensor, list[Tensor]]:
 	id_and_tick = torch.tensor(
 		np.concatenate([
 	  		_encode_id(obs.agent_id),
@@ -62,6 +62,32 @@ def observations_to_network_inputs(obs: Observations, device: torch.device) \
 	]
 
 	return id_and_tick, tiles, inventory_discrete, inventory_continuous, self_data, *masks
+
+
+def observations_to_inputs_simplier(obs: Observations, device: torch.device) \
+	-> tuple[Tensor, Tensor, list[Tensor]]:
+	cnn_entiy_data, self_data = _get_entity_data(obs)
+	tiles = torch.tensor(
+		np.concatenate([
+			_encode_tiles(obs.tiles),
+			cnn_entiy_data
+		], axis=2),
+		dtype=torch.float32,
+		device=device
+	).unsqueeze(0)
+
+	self_data = torch.tensor(
+		self_data,
+		dtype=torch.float32,
+		device=device
+	).unsqueeze(0)
+
+	masks = [
+		torch.tensor(obs.action_targets.move_direction, dtype=torch.float32, device=device).unsqueeze(0),
+		torch.tensor(obs.action_targets.attack_style, dtype=torch.float32, device=device).unsqueeze(0)
+	]
+
+	return tiles, self_data, *masks
 
 
 def _encode_id(single_id: int) -> np.ndarray:
