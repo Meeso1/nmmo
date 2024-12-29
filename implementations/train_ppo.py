@@ -1,32 +1,9 @@
-from abc import ABC, abstractmethod
 from pettingzoo import ParallelEnv
 
 from implementations.CustomRewardBase import CustomRewardBase
 from implementations.PpoAgent import AgentBase, PPOAgent
-from implementations.Observations import Observations, to_observations
-
-
-class EvaluationCallback(ABC):
-    @abstractmethod
-    def step(
-        self,
-        observations_per_agent: dict[int, Observations], 
-        actions_per_agent: dict[int, dict[str, dict[str, int]]], 
-        episode: int, 
-        step: int) -> None:
-        pass
-    
-    @abstractmethod
-    def episode_start(self, episode: int) -> None:
-        pass
-    
-    @abstractmethod
-    def episode_end(
-        self, 
-        episode: int, 
-        rewards_per_agent: dict[int, float],
-        losses: tuple[list[float], list[float], list[float]]) -> None:
-        pass
+from implementations.Observations import to_observations
+from implementations.EvaluationCallback import EvaluationCallback
 
 
 def train_ppo(

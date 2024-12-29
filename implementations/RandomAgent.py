@@ -1,7 +1,12 @@
 import numpy as np
 from torch import Tensor
+import nmmo
+from nmmo import config
+from implementations.CustomRewardBase import CustomRewardBase
 from implementations.Observations import Observations
 from implementations.PpoAgent import AgentBase
+from implementations.EvaluationCallback import EvaluationCallback
+from implementations.train_ppo import evaluate_agent
 
 
 class RandomAgent(AgentBase):
@@ -48,3 +53,62 @@ class RandomAgent(AgentBase):
                 }
             }, {}, {})
         return actions
+
+
+def get_avg_lifetime_for_random_agent(config: config.Default, *, retries: int = 5) -> tuple[float, list[float]]:
+    class Callback(EvaluationCallback):
+        def __init__(self):
+            self.avg_lifetimes = []
+            self.current_lifetimes = {}
+            
+        def step(self, observations_per_agent: dict[int, Observations], actions_per_agent: dict[int, dict[str, dict[str, int]]], episode: int, step: int) -> None:
+            if step == 0:
+                for agent_id in observations_per_agent:
+                    self.current_lifetimes[agent_id] = 0
+                    
+            for agent_id in observations_per_agent.keys():
+                self.current_lifetimes[agent_id] += 1
+                
+        def episode_end(self, episode: int, rewards_per_agent: dict[int, float], losses: tuple[list[float], list[float], list[float]]) -> None:
+            self.avg_lifetimes.append(np.mean(list(self.current_lifetimes.values())))
+            self.current_lifetimes = {}
+            
+        def episode_start(self, episode: int) -> None:
+            pass
+        
+    callback = Callback()
+    evaluate_agent(
+        nmmo.Env(config),
+        agent=RandomAgent(),
+        episodes=retries,
+        callbacks=[callback]
+    )
+    
+    return np.mean(callback.avg_lifetimes), callback.avg_lifetimes
+                
+
+def get_avg_reward_for_random_agent(config: config.Default, *, reward: CustomRewardBase | None = None, retries: int = 5) -> tuple[float, list[float]]:
+    class Callback(EvaluationCallback):
+        def __init__(self):
+            self.rewards = []
+
+        def episode_end(self, episode: int, rewards_per_agent: dict[int, float], losses: tuple[list[float], list[float], list[float]]) -> None:
+            all_rewards = np.array(list(rewards_per_agent.values()))
+            self.rewards.append(all_rewards.mean())
+            
+        def episode_start(self, episode: int) -> None:
+            pass
+        
+        def step(self, observations_per_agent: dict[int, Observations], actions_per_agent: dict[int, dict[str, dict[str, int]]], episode: int, step: int) -> None:
+            pass
+           
+    callback = Callback() 
+    evaluate_agent(
+        nmmo.Env(config),
+        agent=RandomAgent(),
+        episodes=retries,
+        custom_reward=reward,
+        callbacks=[callback]
+    )
+    
+    return np.array(callback.rewards).mean(), callback.rewards
