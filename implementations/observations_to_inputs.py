@@ -7,8 +7,8 @@ from nmmo.core.config import Config, Resource, Progression
 from nmmo import material
 
 
-_map_size_x = 128
-_map_size_y = 128
+_map_size_x = 256
+_map_size_y = 256
 _view_radius = 7
 _view_size = 2 * _view_radius + 1
 

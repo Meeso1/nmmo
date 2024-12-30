@@ -70,6 +70,8 @@ class ResourcesReward(CustomRewardBase):
 
 
 class ResourcesAndGatheringReward(CustomRewardBase):
+    gathering_bonus = 10
+    
     def __init__(self, max_lifetime: int) -> None:
         self.max_lifetime = max_lifetime
         self.last_water = {}
@@ -89,11 +91,11 @@ class ResourcesAndGatheringReward(CustomRewardBase):
             self.last_food[agent_id] = food
             
         gathering_reward = 0
-        if water > self.last_water[agent_id]:
-            gathering_reward = 1
+        if water > self.last_water[agent_id] and self.last_water[agent_id] < self.last_food[agent_id]:
+            gathering_reward = ResourcesAndGatheringReward.gathering_bonus
             
-        if food > self.last_food[agent_id]:
-            gathering_reward = 1
+        if food > self.last_food[agent_id] and self.last_food[agent_id] < self.last_water[agent_id]:
+            gathering_reward = ResourcesAndGatheringReward.gathering_bonus
             
         self.last_water[agent_id] = water
         self.last_food[agent_id] = food
