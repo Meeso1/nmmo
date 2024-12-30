@@ -50,13 +50,10 @@ def train_ppo(
             observations = {
                 agent_id: agent.get_observations_from_state(agent_state)
                 for agent_id, agent_state in states.items()
+                if agent_id in env.agents # Filter out inactive agents
             }
-            action_data = agent.get_actions({
-                agent_id: obs 
-                for agent_id, obs in observations.items()
-                if agent_id in env.agents
-            })
-
+            
+            action_data = agent.get_actions(observations)
             env_actions = {
                 agent_id: action_data[agent_id][0]
                 for agent_id in env.agents
@@ -113,7 +110,8 @@ def evaluate_agent(
     *,
     episodes: int = 10,
     custom_reward: CustomRewardBase | None = None,
-    callbacks: list[EvaluationCallback] | None = None
+    callbacks: list[EvaluationCallback] | None = None,
+    quiet: bool = False
 ) -> None:
     if callbacks is None:
         callbacks = []
@@ -135,12 +133,10 @@ def evaluate_agent(
             observations = { 
                 agent_id: agent.get_observations_from_state(states) 
                 for agent_id, states in states.items()
+                if agent_id in env.agents
             }
             
-            action_data = agent.get_actions({agent_id: obs 
-                 for agent_id, obs in observations.items() 
-                 if agent_id in env.agents})
-
+            action_data = agent.get_actions(observations)
             env_actions = {
                 agent_id: action_data[agent_id][0]
                 for agent_id in env.agents
@@ -163,4 +159,6 @@ def evaluate_agent(
 
         avg_reward = sum(total_rewards.values()) / len(total_rewards)
         avg_rewards.append(avg_reward)
-        print(f"Episode {episode}, Average Reward: {avg_reward:.4f}")
+        
+        if not quiet:
+            print(f"Episode {episode}, Average Reward: {avg_reward:.4f}")

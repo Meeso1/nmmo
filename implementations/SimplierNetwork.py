@@ -8,7 +8,7 @@ class SimplierInputNetwork(nn.Module):
         super(SimplierInputNetwork, self).__init__()
 
         self.tiles_and_entities = nn.Sequential(
-            nn.Conv2d(in_channels=(21+19), out_channels=32, kernel_size=3, padding=1),  # (batch_size, 40, 15, 15) -> (batch_size, 32, 15, 15)
+            nn.Conv2d(in_channels=(9+19), out_channels=32, kernel_size=3, padding=1),  # (batch_size, 28, 15, 15) -> (batch_size, 32, 15, 15)
             nn.ReLU(),
             nn.MaxPool2d(2),  # (batch_size, 16, 15, 15) -> (batch_size, 16, 7, 7)
             nn.Conv2d(in_channels=32, out_channels=32, kernel_size=3, padding=1),  # (batch_size, 32, 7, 7) -> (batch_size, 32, 7, 7)
@@ -20,7 +20,7 @@ class SimplierInputNetwork(nn.Module):
         )
 
         self.self_data = nn.Sequential(
-            nn.Linear(21, 128),
+            nn.Linear(5, 128),
             nn.ReLU(),
             nn.Linear(128, 128),
             nn.ReLU()
@@ -40,8 +40,8 @@ class SimplierInputNetwork(nn.Module):
         Forward pass through the network.
 
         Args:
-            tile_and_entity_data: Tensor of shape (batch_size, 15, 15, 40)
-            self_data: Tensor of shape (batch_size, 21)
+            tile_and_entity_data: Tensor of shape (batch_size, 15, 15, 28)
+            self_data: Tensor of shape (batch_size, 5)
 
         Returns:
             Hidden tensor of shape (batch_size, output_dim)
@@ -133,15 +133,15 @@ class SimplierNetwork(nn.Module):
     def forward(
         self,
         tile_data: Tensor,
-        entity_data: Tensor,
+        self_data: Tensor,
         *masks: Tensor
         ) -> tuple[dict[str, Tensor], Tensor]:
         """
         Forward pass through the network.
 
         Args:
-            tile_data: Tensor of shape (batch_size, 15, 15, 24)
-            entity_data: Tensor of shape (batch_size, 100, 32)
+            tile_data: Tensor of shape (batch_size, 15, 15, 28)
+            self_data: Tensor of shape (batch_size, 21)
             masks: List of masks for some action types, each of shape (batch_size, action_dim)
 
         Returns:
@@ -157,7 +157,7 @@ class SimplierNetwork(nn.Module):
             "AttackStyle": masks[1]
         }
 
-        x = self.input_network(tile_data.clone(), entity_data.clone())
+        x = self.input_network(tile_data.clone(), self_data.clone())
         hidden: Tensor = self.hidden_network(x)
         action_probs = {}
         for action_type in self.action_types():
@@ -173,6 +173,6 @@ class SimplierNetwork(nn.Module):
 
             action_probs[action_type] = output
 
-        x_critic = self.critic_input(tile_data.clone(), entity_data.clone())
+        x_critic = self.critic_input(tile_data.clone(), self_data.clone())
         value = self.critic(x_critic)
         return action_probs, value

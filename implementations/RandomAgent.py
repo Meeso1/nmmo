@@ -82,7 +82,8 @@ def get_avg_lifetime_for_random_agent(config: config.Default, *, retries: int = 
         nmmo.Env(config),
         agent=RandomAgent(),
         episodes=retries,
-        callbacks=[callback]
+        callbacks=[callback],
+        quiet=True
     )
     
     return np.mean(callback.avg_lifetimes), callback.avg_lifetimes
@@ -109,7 +110,8 @@ def get_avg_reward_for_random_agent(config: config.Default, *, reward: CustomRew
         agent=RandomAgent(),
         episodes=retries,
         custom_reward=reward,
-        callbacks=[callback]
+        callbacks=[callback],
+        quiet=True
     )
     
     return np.array(callback.rewards).mean(), callback.rewards

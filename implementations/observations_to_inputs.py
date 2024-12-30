@@ -66,7 +66,7 @@ def observations_to_network_inputs(obs: Observations, device: torch.device) \
 
 def observations_to_inputs_simplier(obs: Observations, device: torch.device) \
 	-> tuple[Tensor, Tensor, list[Tensor]]:
-	cnn_entiy_data, self_data = _get_entity_data(obs)
+	cnn_entiy_data, self_data = _get_entity_data(obs, simlified=True)
 	tiles = torch.tensor(
 		np.concatenate([
 			_encode_tiles(obs.tiles),
@@ -196,11 +196,26 @@ class SingleEntity:
 			self.carving_level / Progression.PROGRESSION_LEVEL_MAX,
 			self.alchemy_level / Progression.PROGRESSION_LEVEL_MAX
 		])
+  
+	def to_input_array_simplier(self) -> np.ndarray:
+		"""
+		Get (7,) input array for the entity
+  		"""
+		return np.array([
+      		1 if self.id < 0 else 0, # is NPC
+			1 if self.id > 0 else 0, # is player
+			self.npc_type,
+			self.item_level / Progression.PROGRESSION_LEVEL_MAX,
+			self.health / Config.PLAYER_BASE_HEALTH,
+			self.food / Resource.RESOURCE_BASE,
+			self.water / Resource.RESOURCE_BASE
+		])
 
 
-def _get_entity_data(obs: Observations) -> tuple[np.ndarray, np.ndarray]:
+def _get_entity_data(obs: Observations, simlified: bool = False) -> tuple[np.ndarray, np.ndarray]:
 	"""
 	Get entity data for the CNN (of shape (15, 15, 21)) and self data (of shape (21,))
+	If simplified=True, CNN output will be of shape (15, 15, 9) and self data will be of shape (5,)
 	"""
 	if np.all(obs.entities.id != obs.agent_id):
 		print(f"[{obs.current_tick:4d}] Agent {obs.agent_id} not found in entities ({np.sum(obs.entities.id != 0)} entities seen)")
@@ -213,11 +228,11 @@ def _get_entity_data(obs: Observations) -> tuple[np.ndarray, np.ndarray]:
 				  	for i, a_id in enumerate(obs.entities.id)
 				   	if a_id != obs.agent_id and a_id != 0]
 
-	cnn_data = np.zeros((_view_size, _view_size, 21))
+	cnn_data = np.zeros((_view_size, _view_size, 21)) if not simlified else np.zeros((_view_size, _view_size, 9))
 	for entity in other_entites:
 		cnn_data[entity.row - me.row + _view_radius, entity.col - me.col + _view_radius, :] = \
 			np.concatenate([
-				entity.to_input_array(),
+				entity.to_input_array() if not simlified else entity.to_input_array_simplier(),
 				np.array([
 					obs.action_targets.attack_target[me_idx],
 					np.sqrt((entity.row - me.row) ** 2 + (entity.col - me.col) ** 2) / np.sqrt(_view_radius ** 2 + _view_radius ** 2),
@@ -225,8 +240,9 @@ def _get_entity_data(obs: Observations) -> tuple[np.ndarray, np.ndarray]:
 			])
 
 	my_data = SingleEntity.from_entity_data(obs.entities, me_idx)
+	my_data_input = my_data.to_input_array()[-3:]
 	return cnn_data, np.concatenate([
-			my_data.to_input_array(),
+			my_data_input,
 			np.array([
 				my_data.col / _map_size_x,
 				my_data.row / _map_size_y

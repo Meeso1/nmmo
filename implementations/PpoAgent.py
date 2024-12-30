@@ -60,7 +60,7 @@ class PPOAgent(AgentBase):
             return 100
 
         attackable_idxs = [idx for idx, agent_id in enumerate(state.entities.id)
-                           if agent_id != 0
+                           if agent_id < 0 # Only attack NPCs
                            and agent_id != state.agent_id
                            and state.action_targets.attack_target[idx] == 1]
 
