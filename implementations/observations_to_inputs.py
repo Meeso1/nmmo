@@ -7,8 +7,8 @@ from nmmo.core.config import Config, Resource, Progression
 from nmmo import material
 
 
-_map_size_x = 256
-_map_size_y = 256
+_map_size_x = 144
+_map_size_y = 144
 _view_radius = 7
 _view_size = 2 * _view_radius + 1
 
@@ -240,7 +240,8 @@ def _get_entity_data(obs: Observations, simlified: bool = False) -> tuple[np.nda
 			])
 
 	my_data = SingleEntity.from_entity_data(obs.entities, me_idx)
-	my_data_input = my_data.to_input_array()[-3:]
+	my_data_input = my_data.to_input_array() if not simlified \
+      				else my_data.to_input_array_simplier()[-3:] # Only keep health, food, water
 	return cnn_data, np.concatenate([
 			my_data_input,
 			np.array([

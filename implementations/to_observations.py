@@ -6,10 +6,10 @@ def to_observations(obs: dict[str]) -> Observations:
     return Observations(
         agent_id=obs["AgentId"],
         current_tick=obs["CurrentTick"],
-        inventory=obs["Inventory"],
-        tiles=obs["Tile"],
+        inventory=obs["Inventory"].copy(),
+        tiles=obs["Tile"].copy(),
         entities=EntityData(
-            **{feature: obs["Entity"][:, idx] 
+            **{feature: obs["Entity"][:, idx].copy() 
             for feature, idx in EntityState.State.attr_name_to_col.items()}
         ),
         action_targets=ActionTargets(
