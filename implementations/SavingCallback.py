@@ -5,9 +5,19 @@ from implementations.jar import Jar
 
 
 class SavingCallback(EvaluationCallback):
-    def __init__(self, name: str, saved_agent_ids: list[int]) -> None:
+    def __init__(
+        self, 
+        name: str, 
+        saved_agent_ids: list[int], 
+        append_to_existing: bool = False,
+        overwrite: bool = False
+    ) -> None:
         self.name = name
         self.saved_agent_ids = saved_agent_ids
+        self.append_to_existing = append_to_existing
+        self.overwrite = overwrite
+        self.verified_existing = False
+        
         self.episodes: list[tuple[
             list[tuple[dict[int, dict], dict[int, dict]]], # Observations per agent + actions per agent
             dict[int, float],                              # Rewards per agent
@@ -17,6 +27,18 @@ class SavingCallback(EvaluationCallback):
         self.current_episode: list[tuple[dict[int, dict], dict[int, dict]]] = []
         self.lifetimes_per_agent = {}
         self.jar = Jar("saves")
+        
+    def _check_existing(self) -> None:
+        exists = self.name in self.jar
+        
+        if exists:
+            if self.append_to_existing:
+                self.episodes = self.jar.get(self.name)
+            elif not self.overwrite:
+                raise ValueError(f"Save with name '{self.name}' already exists")
+        else:
+            if self.append_to_existing:
+                print(f"Save with name '{self.name}' does not exist - creating new save")           
 
     def step(
         self,
@@ -25,6 +47,10 @@ class SavingCallback(EvaluationCallback):
         episode: int,
         step: int
     ) -> None:
+        if not self.verified_existing:
+            self._check_existing()
+            self.verified_existing = True
+        
         if step == 0:
             self.lifetimes_per_agent = {agent_id: 0 for agent_id in observations_per_agent.keys()}
         
@@ -44,7 +70,7 @@ class SavingCallback(EvaluationCallback):
         episode: int, 
         rewards_per_agent: dict[int, float],
         losses: tuple[list[float], list[float], list[float]]
-        ) -> None:
+    ) -> None:
         self.episodes.append((self.current_episode, rewards_per_agent, losses, self.lifetimes_per_agent))
         self.current_episode = []
         self.lifetimes_per_agent = {}
