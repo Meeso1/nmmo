@@ -64,7 +64,7 @@ def train_ppo(
                 rewards = custom_reward.get_rewards(observations, rewards, terminations, truncations)
             
             for callback in callbacks:
-                callback.step(observations, env_actions, episode, step)
+                callback.step(observations, action_data, episode, step)
 
             for agent_id in env.agents:
                 episode_data[agent_id]['states'].append(observations[agent_id])
@@ -138,7 +138,7 @@ def evaluate_agent(
             
             action_data = agent.get_actions(observations)
             env_actions = {
-                agent_id: action_data[agent_id][0]
+                agent_id: action_data[agent_id].action_dict
                 for agent_id in env.agents
             }
 
@@ -147,7 +147,7 @@ def evaluate_agent(
                 rewards = custom_reward.get_rewards(observations, rewards, terminations, truncations)
             
             for callback in callbacks:
-                callback.step(observations, env_actions, episode, step)
+                callback.step(observations, action_data, episode, step)
 
             for agent_id in env.agents:
                 total_rewards[agent_id] += rewards[agent_id]
