@@ -66,7 +66,7 @@ class SavingCallback(EvaluationCallback):
             
         self.current_episode_entropies.append(
             {agent_id: {
-                    name: distribution.entropy().item() 
+                    name: distribution.entropy().sum().item() 
                     for name, distribution in actions.distributions.items()
                 } 
              for agent_id, actions in actions_per_agent.items()})
