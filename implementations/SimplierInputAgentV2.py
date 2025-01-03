@@ -22,16 +22,18 @@ class SimplierInputAgentV2(AgentBase):
         entropy_loss_coef: float = 0.01,
         epochs: int = 10,
         batch_size: int = 64,
-        normalize_advantages: bool = True
+        normalize_advantages: bool = True,
+        action_loss_weights: dict[str, float] = None
     ) -> None:
         self.gamma = gamma
         self.epsilon = epsilon
         self.critic_loss_coef = critic_loss_coef
+        self.entropy_loss_coef = entropy_loss_coef
         self.epochs = epochs
         self.batch_size = batch_size
         self.learning_rate = learning_rate
         self.normalize_advantages = normalize_advantages
-        self.entropy_loss_coef = entropy_loss_coef
+        self.action_loss_weights = action_loss_weights or {}
 
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -113,6 +115,13 @@ class SimplierInputAgentV2(AgentBase):
         all_old_log_probs: dict[str, list[Tensor]] = {type: [] for type in SimplierNetwork.action_types()}
         
         self.network.train()
+        
+        # Normalize weights
+        action_weights = {name: self.action_loss_weights.get(name, 1.0) 
+                          for name in SimplierNetwork.action_types()}
+        total_weight = sum(action_weights.values())
+        for name in action_weights:
+            action_weights[name] /= total_weight
 
         for agent_id in states.keys():
             R = 0.0
@@ -176,13 +185,14 @@ class SimplierInputAgentV2(AgentBase):
 
                     surr1 = ratio * advantages
                     surr2 = torch.clamp(ratio, 1-self.epsilon, 1+self.epsilon) * advantages
-                    actor_loss += -torch.min(surr1, surr2).mean()
                     
                     entropy_loss = -self.entropy_loss_coef * dist.entropy()
-                    actor_loss += entropy_loss.mean()
+                    action_loss = -torch.min(surr1, surr2) + entropy_loss
+                    
+                    actor_loss += action_weights[type] * action_loss.mean()
                     
                     # Save losses for history
-                    epoch_actor_losses[batch_indices] += -torch.min(surr1, surr2) + entropy_loss
+                    epoch_actor_losses[batch_indices] += action_weights[type] * action_loss
 
                 critic_loss: Tensor = 0.5 * torch.nn.MSELoss()(values.squeeze(dim=-1), batch_returns_tensor.detach())
                 epoch_critic_losses[batch_indices] = 0.5 * (values.squeeze(dim=-1) - batch_returns_tensor.detach()).pow(2)
