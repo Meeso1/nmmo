@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import Any
+from implementations.ActionData import ActionData
 
 
 class EvaluationCallback(ABC):
@@ -7,7 +8,7 @@ class EvaluationCallback(ABC):
     def step(
         self,
         observations_per_agent: dict[int, Any], 
-        actions_per_agent: dict[int, dict[str, dict[str, int]]], 
+        actions_per_agent: dict[int, ActionData],
         episode: int, 
         step: int) -> None:
         pass

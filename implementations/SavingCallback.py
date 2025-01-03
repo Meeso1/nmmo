@@ -1,7 +1,7 @@
 from typing import Any
 from implementations.train_ppo import EvaluationCallback
-from implementations.Observations import Observations
 from implementations.jar import Jar
+from implementations.ActionData import ActionData
 
 
 class SavingCallback(EvaluationCallback):
@@ -43,7 +43,7 @@ class SavingCallback(EvaluationCallback):
     def step(
         self,
         observations_per_agent: dict[int, Any],
-        actions_per_agent: dict[int, dict[str, dict[str, int]]],
+        actions_per_agent: dict[int, ActionData],
         episode: int,
         step: int
     ) -> None:
@@ -56,7 +56,7 @@ class SavingCallback(EvaluationCallback):
         
         self.current_episode.append((
             {agent_id: obs for agent_id, obs in observations_per_agent.items() if agent_id in self.saved_agent_ids},
-            {agent_id: actions for agent_id, actions in actions_per_agent.items() if agent_id in self.saved_agent_ids}
+            {agent_id: actions.action_dict for agent_id, actions in actions_per_agent.items() if agent_id in self.saved_agent_ids}
         ))
         
         for agent_id in observations_per_agent.keys():

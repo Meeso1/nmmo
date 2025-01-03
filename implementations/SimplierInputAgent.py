@@ -2,12 +2,14 @@ import torch
 from torch import optim
 import numpy as np
 from torch import Tensor
+from torch.distributions import Distribution
 
 from implementations.SimplierNetwork import SimplierNetwork
 from implementations.Observations import Observations
 from implementations.observations_to_inputs import observations_to_inputs_simplier
 from implementations.jar import Jar
 from implementations.PpoAgent import AgentBase
+from implementations.ActionData import ActionData
 
 
 class SimplierInputAgent(AgentBase):
@@ -66,7 +68,7 @@ class SimplierInputAgent(AgentBase):
     def get_actions(
         self,
         states: dict[int, Observations]
-    ) -> dict[int, tuple[dict[str, dict[str, int]], dict[str, Tensor], dict[str, Tensor]]]:
+    ) -> dict[int, ActionData]:
         actions = {}
         
         self.network.eval()
@@ -74,7 +76,7 @@ class SimplierInputAgent(AgentBase):
         for agent_id, observations in states.items():
             inputs = observations_to_inputs_simplier(observations, self.device)
             action_probs, _ = self.network(*inputs)
-            distributions = SimplierNetwork.get_distributions(action_probs)
+            distributions = self._get_distributions(action_probs)
             agent_actions = {name: dist.sample() for name, dist in distributions.items()}
             log_probs = {name: distributions[name].log_prob(action) for name, action in agent_actions.items()}
 
@@ -83,8 +85,9 @@ class SimplierInputAgent(AgentBase):
                 if log_prob.dim() > 1:
                     log_probs[name] = log_prob.sum(dim=-1)
 
-            actions[agent_id] = (
+            actions[agent_id] = ActionData(
                 SimplierInputAgent._sampled_outputs_to_action_dict(agent_actions, observations),
+                distributions,
                 agent_actions,
                 log_probs
             )
@@ -147,7 +150,7 @@ class SimplierInputAgent(AgentBase):
                 new_action_probs: list[Tensor]
                 values: Tensor
                 new_action_probs, values = self.network(*batch_inputs)
-                distributions = SimplierNetwork.get_distributions(new_action_probs)
+                distributions = self._get_distributions(new_action_probs)
                 advantages = (batch_returns_tensor - values).detach()
 
                 actor_loss = 0
@@ -184,6 +187,9 @@ class SimplierInputAgent(AgentBase):
             total_losses.append(epoch_actor_losses.mean().item() + epoch_critic_losses.mean().item())
             
         return actor_losses, critic_losses, total_losses
+    
+    def _get_distributions(self, action_probs: dict[str, Tensor]) -> dict[str, Distribution]:
+        return SimplierNetwork.get_distributions(action_probs)
 
     def save(self, name: str | None = None) -> None:
         agent_name = name if name is not None else "SimplierInputAgent"

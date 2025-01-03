@@ -55,7 +55,7 @@ def train_ppo(
             
             action_data = agent.get_actions(observations)
             env_actions = {
-                agent_id: action_data[agent_id][0]
+                agent_id: action_data[agent_id].action_dict
                 for agent_id in env.agents
             }
 
@@ -68,9 +68,9 @@ def train_ppo(
 
             for agent_id in env.agents:
                 episode_data[agent_id]['states'].append(observations[agent_id])
-                episode_data[agent_id]['actions'].append(action_data[agent_id][1])
+                episode_data[agent_id]['actions'].append(action_data[agent_id].sampled_actions)
                 episode_data[agent_id]['rewards'].append(rewards[agent_id])
-                episode_data[agent_id]['log_probs'].append(action_data[agent_id][2])
+                episode_data[agent_id]['log_probs'].append(action_data[agent_id].log_probs)
                 episode_data[agent_id]['dones'].append(
                     terminations[agent_id] or truncations[agent_id]
                 )

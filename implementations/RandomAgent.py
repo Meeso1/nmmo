@@ -6,6 +6,7 @@ from nmmo import config
 from implementations.CustomRewardBase import CustomRewardBase
 from implementations.Observations import Observations
 from implementations.PpoAgent import AgentBase
+from implementations.ActionData import ActionData
 from implementations.EvaluationCallback import EvaluationCallback
 from implementations.train_ppo import evaluate_agent
 
@@ -21,7 +22,7 @@ class RandomAgent(AgentBase):
     def get_actions(
         self,
         states: dict[int, Observations]
-    ) -> dict[int, tuple[dict[str, dict[str, int]], dict[str, Tensor], dict[str, Tensor]]]:
+    ) -> dict[int, ActionData]:
         actions = {}
         for agent_id, obs in states.items():
             masks = {
@@ -38,7 +39,7 @@ class RandomAgent(AgentBase):
                 for key, mask in masks.items()
             }
                         
-            actions[agent_id] = ({
+            actions[agent_id] = ActionData({
                 "Move": {
                     "Direction": items["Move"]
                 },
@@ -52,7 +53,7 @@ class RandomAgent(AgentBase):
                 "Destroy": {
                     "InventoryItem": items["Destroy"]
                 }
-            }, {}, {})
+            }, {}, {}, {})
         return actions
 
 
@@ -62,7 +63,7 @@ def get_avg_lifetime_for_random_agent(config: config.Default, *, retries: int = 
             self.avg_lifetimes = []
             self.current_lifetimes = {}
             
-        def step(self, observations_per_agent: dict[int, Any], actions_per_agent: dict[int, dict[str, dict[str, int]]], episode: int, step: int) -> None:
+        def step(self, observations_per_agent: dict[int, Any], actions_per_agent: dict[int, ActionData], episode: int, step: int) -> None:
             if step == 0:
                 for agent_id in observations_per_agent.keys():
                     self.current_lifetimes[agent_id] = 0
@@ -101,7 +102,7 @@ def get_avg_reward_for_random_agent(config: config.Default, *, reward: CustomRew
         def episode_start(self, episode: int) -> None:
             pass
         
-        def step(self, observations_per_agent: dict[int, Any], actions_per_agent: dict[int, dict[str, dict[str, int]]], episode: int, step: int) -> None:
+        def step(self, observations_per_agent: dict[int, Any], actions_per_agent: dict[int, ActionData], episode: int, step: int) -> None:
             pass
            
     callback = Callback() 
