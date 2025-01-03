@@ -186,7 +186,11 @@ class SimplierInputAgentV2(AgentBase):
                     surr1 = ratio * advantages
                     surr2 = torch.clamp(ratio, 1-self.epsilon, 1+self.epsilon) * advantages
                     
-                    entropy_loss = -self.entropy_loss_coef * dist.entropy()
+                    entropy = dist.entropy()
+                    if entropy.dim() > 1:
+                        entropy = entropy.sum(dim=-1)
+                    
+                    entropy_loss = -self.entropy_loss_coef * entropy
                     action_loss = -torch.min(surr1, surr2) + entropy_loss
                     
                     actor_loss += action_weights[type] * action_loss.mean()
