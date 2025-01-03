@@ -192,7 +192,7 @@ class SimplierInputAgentV2(AgentBase):
                     actor_loss += action_weights[type] * action_loss.mean()
                     
                     # Save losses for history
-                    epoch_actor_losses[batch_indices] += action_weights[type] * action_loss
+                    epoch_actor_losses[batch_indices] += action_weights[type] * action_loss.mean(dim=-1)
 
                 critic_loss: Tensor = 0.5 * torch.nn.MSELoss()(values.squeeze(dim=-1), batch_returns_tensor.detach())
                 epoch_critic_losses[batch_indices] = 0.5 * (values.squeeze(dim=-1) - batch_returns_tensor.detach()).pow(2)
