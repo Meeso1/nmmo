@@ -17,8 +17,10 @@ class SimplierInputAgentV2(AgentBase):
         gamma: float = 0.99,
         epsilon: float = 0.2,
         critic_loss_coef: float = 0.5,
+        entropy_loss_coef: float = 0.01,
         epochs: int = 10,
-        batch_size: int = 64
+        batch_size: int = 64,
+        normalize_advantages: bool = True
     ) -> None:
         self.gamma = gamma
         self.epsilon = epsilon
@@ -26,6 +28,8 @@ class SimplierInputAgentV2(AgentBase):
         self.epochs = epochs
         self.batch_size = batch_size
         self.learning_rate = learning_rate
+        self.normalize_advantages = normalize_advantages
+        self.entropy_loss_coef = entropy_loss_coef
 
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -152,6 +156,9 @@ class SimplierInputAgentV2(AgentBase):
                 distributions = SimplierNetwork.get_distributions(new_action_probs)
                 advantages = (batch_returns_tensor - values).detach()
 
+                if self.normalize_advantages:
+                    advantages = (advantages - advantages.mean()) / (advantages.std(unbiased=False) + 1e-8)
+
                 actor_loss = 0
                 for type in SimplierNetwork.action_types():
                     dist = distributions[type]
@@ -168,8 +175,11 @@ class SimplierInputAgentV2(AgentBase):
                     surr2 = torch.clamp(ratio, 1-self.epsilon, 1+self.epsilon) * advantages
                     actor_loss += -torch.min(surr1, surr2).mean()
                     
+                    entropy_loss = -self.entropy_loss_coef * dist.entropy()
+                    actor_loss += entropy_loss.mean()
+                    
                     # Save losses for history
-                    epoch_actor_losses[batch_indices] += -torch.min(surr1, surr2).mean(dim=0)
+                    epoch_actor_losses[batch_indices] += -torch.min(surr1, surr2) + entropy_loss
 
                 critic_loss: Tensor = 0.5 * torch.nn.MSELoss()(values.squeeze(dim=-1), batch_returns_tensor.detach())
                 epoch_critic_losses[batch_indices] = 0.5 * (values.squeeze(dim=-1) - batch_returns_tensor.detach()).pow(2)
@@ -194,8 +204,10 @@ class SimplierInputAgentV2(AgentBase):
             "gamma": self.gamma,
             "epsilon": self.epsilon,
             "critic_loss_coef": self.critic_loss_coef,
+            "entropy_loss_coef": self.entropy_loss_coef,
             "epochs": self.epochs,
-            "batch_size": self.batch_size
+            "batch_size": self.batch_size,
+            "normalize_advantages": self.normalize_advantages
         }
 
         jar.add(f"{agent_name}-params", constructor_params)
