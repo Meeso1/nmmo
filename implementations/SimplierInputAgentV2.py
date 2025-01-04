@@ -227,7 +227,8 @@ class SimplierInputAgentV2(AgentBase):
             "entropy_loss_coef": self.entropy_loss_coef,
             "epochs": self.epochs,
             "batch_size": self.batch_size,
-            "normalize_advantages": self.normalize_advantages
+            "normalize_advantages": self.normalize_advantages,
+            "action_loss_weights": self.action_loss_weights
         }
 
         jar.add(f"{agent_name}-params", constructor_params)

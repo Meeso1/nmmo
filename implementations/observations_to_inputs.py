@@ -1,6 +1,5 @@
-from dataclasses import dataclass
 import torch
-from implementations.Observations import Observations, EntityData
+from implementations.Observations import Observations, SingleEntity
 from torch import Tensor
 import numpy as np
 from nmmo.core.config import Config, Resource, Progression
@@ -101,115 +100,46 @@ def _encode_id(single_id: int) -> np.ndarray:
 	return encoded
 
 
-@dataclass(frozen=True)
-class SingleEntity:
-	id: int
-	npc_type: int
-	row: int
-	col: int
-	damage: int
-	time_alive: int
-	freeze: int
-	item_level: int
-	attacker_id: int
-	latest_combat_tick: int
-	message: int
-	gold: int
-	health: int
-	food: int
-	water: int
-	melee_level: int
-	melee_exp: int
-	range_level: int
-	range_exp: int
-	mage_level: int
-	mage_exp: int
-	fishing_level: int
-	fishing_exp: int
-	herbalism_level: int
-	herbalism_exp: int
-	prospecting_level: int
-	prospecting_exp: int
-	carving_level: int
-	carving_exp: int
-	alchemy_level: int
-	alchemy_exp: int
-
-	@staticmethod
-	def from_entity_data(entity_data: EntityData, entity_id: int) -> 'SingleEntity':
-		return SingleEntity(
-			id=entity_data.id[entity_id],
-			npc_type=entity_data.npc_type[entity_id],
-			row=entity_data.row[entity_id],
-			col=entity_data.col[entity_id],
-			damage=entity_data.damage[entity_id],
-			time_alive=entity_data.time_alive[entity_id],
-			freeze=entity_data.freeze[entity_id],
-			item_level=entity_data.item_level[entity_id],
-			attacker_id=entity_data.attacker_id[entity_id],
-			latest_combat_tick=entity_data.latest_combat_tick[entity_id],
-			message=entity_data.message[entity_id],
-			gold=entity_data.gold[entity_id],
-			health=entity_data.health[entity_id],
-			food=entity_data.food[entity_id],
-			water=entity_data.water[entity_id],
-			melee_level=entity_data.melee_level[entity_id],
-			melee_exp=entity_data.melee_exp[entity_id],
-			range_level=entity_data.range_level[entity_id],
-			range_exp=entity_data.range_exp[entity_id],
-			mage_level=entity_data.mage_level[entity_id],
-			mage_exp=entity_data.mage_exp[entity_id],
-			fishing_level=entity_data.fishing_level[entity_id],
-			fishing_exp=entity_data.fishing_exp[entity_id],
-			herbalism_level=entity_data.herbalism_level[entity_id],
-			herbalism_exp=entity_data.herbalism_exp[entity_id],
-			prospecting_level=entity_data.prospecting_level[entity_id],
-			prospecting_exp=entity_data.prospecting_exp[entity_id],
-			carving_level=entity_data.carving_level[entity_id],
-			carving_exp=entity_data.carving_exp[entity_id],
-			alchemy_level=entity_data.alchemy_level[entity_id],
-			alchemy_exp=entity_data.alchemy_exp[entity_id]
-		)
-
-	def to_input_array(self) -> np.ndarray:
-		"""
-		Get (19,) input array for the entity
-  		"""
-		return np.array([
-			1 if self.id < 0 else 0, # is NPC
-			1 if self.id > 0 else 0, # is player
-			self.npc_type,
-			self.damage / 100,
-			np.log(self.time_alive + 1),
-			self.freeze / 3,
-			self.item_level / Progression.PROGRESSION_LEVEL_MAX,
-			np.log(self.latest_combat_tick + 1),
-			self.health / Config.PLAYER_BASE_HEALTH,
-			self.food / Resource.RESOURCE_BASE,
-			self.water / Resource.RESOURCE_BASE,
-			self.melee_level / Progression.PROGRESSION_LEVEL_MAX,
-			self.range_level / Progression.PROGRESSION_LEVEL_MAX,
-			self.mage_level / Progression.PROGRESSION_LEVEL_MAX,
-			self.fishing_level / Progression.PROGRESSION_LEVEL_MAX,
-			self.herbalism_level / Progression.PROGRESSION_LEVEL_MAX,
-			self.prospecting_level / Progression.PROGRESSION_LEVEL_MAX,
-			self.carving_level / Progression.PROGRESSION_LEVEL_MAX,
-			self.alchemy_level / Progression.PROGRESSION_LEVEL_MAX
-		])
+def entity_to_input_array(entity: SingleEntity) -> np.ndarray:
+	"""
+	Get (19,) input array for the entity
+	"""
+	return np.array([
+		1 if entity.id < 0 else 0, # is NPC
+		1 if entity.id > 0 else 0, # is player
+		entity.npc_type,
+		entity.damage / 100,
+		np.log(entity.time_alive + 1),
+		entity.freeze / 3,
+		entity.item_level / Progression.PROGRESSION_LEVEL_MAX,
+		np.log(entity.latest_combat_tick + 1),
+		entity.health / Config.PLAYER_BASE_HEALTH,
+		entity.food / Resource.RESOURCE_BASE,
+		entity.water / Resource.RESOURCE_BASE,
+		entity.melee_level / Progression.PROGRESSION_LEVEL_MAX,
+		entity.range_level / Progression.PROGRESSION_LEVEL_MAX,
+		entity.mage_level / Progression.PROGRESSION_LEVEL_MAX,
+		entity.fishing_level / Progression.PROGRESSION_LEVEL_MAX,
+		entity.herbalism_level / Progression.PROGRESSION_LEVEL_MAX,
+		entity.prospecting_level / Progression.PROGRESSION_LEVEL_MAX,
+		entity.carving_level / Progression.PROGRESSION_LEVEL_MAX,
+		entity.alchemy_level / Progression.PROGRESSION_LEVEL_MAX
+	])
   
-	def to_input_array_simplier(self) -> np.ndarray:
-		"""
-		Get (7,) input array for the entity
-  		"""
-		return np.array([
-      		1 if self.id < 0 else 0, # is NPC
-			1 if self.id > 0 else 0, # is player
-			self.npc_type,
-			self.item_level / Progression.PROGRESSION_LEVEL_MAX,
-			self.health / Config.PLAYER_BASE_HEALTH,
-			self.food / Resource.RESOURCE_BASE,
-			self.water / Resource.RESOURCE_BASE
-		])
+  
+def entity_to_input_array_simplier(entity: SingleEntity) -> np.ndarray:
+	"""
+	Get (7,) input array for the entity
+	"""
+	return np.array([
+		1 if entity.id < 0 else 0, # is NPC
+		1 if entity.id > 0 else 0, # is player
+		entity.npc_type,
+		entity.item_level / Progression.PROGRESSION_LEVEL_MAX,
+		entity.health / Config.PLAYER_BASE_HEALTH,
+		entity.food / Resource.RESOURCE_BASE,
+		entity.water / Resource.RESOURCE_BASE
+	])
 
 
 def _get_entity_data(obs: Observations, simlified: bool = False) -> tuple[np.ndarray, np.ndarray]:
@@ -217,36 +147,33 @@ def _get_entity_data(obs: Observations, simlified: bool = False) -> tuple[np.nda
 	Get entity data for the CNN (of shape (15, 15, 21)) and self data (of shape (21,))
 	If simplified=True, CNN output will be of shape (15, 15, 9) and self data will be of shape (5,)
 	"""
-	if np.all(obs.entities.id != obs.agent_id):
+	me = obs.entities.get_by_id(obs.agent_id)
+	if me is None:
 		print(f"[{obs.current_tick:4d}] Agent {obs.agent_id} not found in entities ({np.sum(obs.entities.id != 0)} entities seen)")
 		return np.zeros((_view_size, _view_size, 21)), np.zeros((21,))
 
-	me_idx = np.where(obs.entities.id == obs.agent_id)[0][0]
-	me = SingleEntity.from_entity_data(obs.entities, me_idx)
-
-	other_entites = [SingleEntity.from_entity_data(obs.entities, i)
-				  	for i, a_id in enumerate(obs.entities.id)
-				   	if a_id != obs.agent_id and a_id != 0]
+	other_entites_with_indexes = [(i, obs.entities.get_by_index(i))
+                                  for i, a_id in enumerate(obs.entities.id)
+				   				  if a_id != obs.agent_id and a_id != 0]
 
 	cnn_data = np.zeros((_view_size, _view_size, 21)) if not simlified else np.zeros((_view_size, _view_size, 9))
-	for entity in other_entites:
+	for idx, entity in other_entites_with_indexes:
 		cnn_data[entity.row - me.row + _view_radius, entity.col - me.col + _view_radius, :] = \
 			np.concatenate([
-				entity.to_input_array() if not simlified else entity.to_input_array_simplier(),
+				entity_to_input_array(entity) if not simlified else entity_to_input_array_simplier(entity),
 				np.array([
-					obs.action_targets.attack_target[me_idx],
+					obs.action_targets.attack_target[idx],
 					np.sqrt((entity.row - me.row) ** 2 + (entity.col - me.col) ** 2) / np.sqrt(_view_radius ** 2 + _view_radius ** 2),
 			  	]),
 			])
 
-	my_data = SingleEntity.from_entity_data(obs.entities, me_idx)
-	my_data_input = my_data.to_input_array() if not simlified \
-      				else my_data.to_input_array_simplier()[-3:] # Only keep health, food, water
+	my_data_input = entity_to_input_array(me) if not simlified \
+      				else entity_to_input_array_simplier(me)[-3:] # Only keep health, food, water
 	return cnn_data, np.concatenate([
 			my_data_input,
 			np.array([
-				my_data.col / _map_size_x,
-				my_data.row / _map_size_y
+				me.col / _map_size_x,
+				me.row / _map_size_y
 			])
 		])
 
