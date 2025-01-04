@@ -87,21 +87,24 @@ class AnimationCallback(EvaluationCallback):
             color_grid[r - min_row, c - min_col] = hex_to_rgb(self.tile_color_map[index_to_material[v]])
         return color_grid
 
-    def _get_action_text(self, action: dict[str, dict[str, int]]) -> str:
-        if not action:
+    def _get_action_text(self, action_data: ActionData) -> str:
+        if not action_data:
             return "No action"
         
         action_parts = []
-        if 'Move' in action and 'Direction' in action['Move']:
-            action_parts.append(f"Move: Direction {action['Move']['Direction']}")
-        if 'Attack' in action:
-            attack = action['Attack']
+        if 'Move' in action_data.action_dict and 'Direction' in action_data.action_dict['Move']:
+            probability = action_data.distributions["Move"].probs[0, action_data.action_dict['Move']['Direction']]
+            action_parts.append(f"Move: Direction {action_data.action_dict['Move']['Direction']} ({(probability * 100):.2f}%)")
+        if 'Attack' in action_data.action_dict:
+            attack = action_data.action_dict['Attack']
             if 'Style' in attack and 'Target' in attack:
-                action_parts.append(f"Attack: Style {attack['Style']}, Target {attack['Target']}")
-        if 'Use' in action and 'InventoryItem' in action['Use']:
-            action_parts.append(f"Use: Item {action['Use']['InventoryItem']}")
-        if 'Destroy' in action and 'InventoryItem' in action['Destroy']:
-            action_parts.append(f"Destroy: Item {action['Destroy']['InventoryItem']}")
+                style_prob = action_data.distributions["AttackStyle"].probs[0, attack['Style']]
+                attack_or_not_prob = action_data.distributions["AttackOrNot"].probs[0, 1 if attack['Target'] != 100 else 0]
+                action_parts.append(f"Attack: Style {attack['Style']} ({(style_prob * 100):.2f}%), Target {attack['Target']} ({(attack_or_not_prob * 100):.2f}%)")
+        if 'Use' in action_data.action_dict and 'InventoryItem' in action_data.action_dict['Use']:
+            action_parts.append(f"Use: Item {action_data.action_dict['Use']['InventoryItem']}")
+        if 'Destroy' in action_data.action_dict and 'InventoryItem' in action_data.action_dict['Destroy']:
+            action_parts.append(f"Destroy: Item {action_data.action_dict['Destroy']['InventoryItem']}")
             
         return '\n'.join(action_parts) if action_parts else "No action"
 
@@ -137,7 +140,7 @@ class AnimationCallback(EvaluationCallback):
     def plot_agent_view(
         self, 
         obs: dict[int, Observations], 
-        env_actions: dict[int, dict[str, dict[str, int]]], 
+        env_actions: dict[int, ActionData], 
         agent_id: int, 
         step: int
     ) -> None:
@@ -219,7 +222,7 @@ class AnimationCallback(EvaluationCallback):
         step: int) -> None:
         self.plot_agent_view(
             observations_per_agent, 
-            {agent_id: actions.action_dict for agent_id, actions in actions_per_agent.items()}, 
+            actions_per_agent, 
             self.agent_id, 
             step)
         self._current_episode_steps += 1
