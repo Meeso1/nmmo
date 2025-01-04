@@ -23,6 +23,7 @@ def train_ppo(
     agent_name = agent_name or 'ppo_agent'
     avg_rewards = []
     last_print_episode = start_episode-1
+    best_avg_reward = float('-inf')
 
     for episode in range(start_episode, episodes+start_episode):
         for callback in callbacks:
@@ -95,9 +96,14 @@ def train_ppo(
         if episode == 1:
             print(f"{len(total_rewards)} agents in the environment")
 
+        if avg_reward > best_avg_reward:
+            best_avg_reward = avg_reward
+            agent.save(f"{agent_name}_best")
+            print(f"Episode {episode:5d}, New Best Reward: {avg_reward:.4f} (model saved)")
+
         if print_every is not None and (episode % print_every == 0 or episode == episodes+start_episode-1):
             avg_reward_since_last_print = sum(avg_rewards[(last_print_episode-start_episode+1):]) / (episode - last_print_episode)
-            print(f"Episode {episode}, Average Reward: {avg_reward_since_last_print:.4f} (Episode Reward: {avg_reward:.4f})")
+            print(f"Episode {episode:5d}, Average Reward: {avg_reward_since_last_print:.4f} (Episode Reward: {avg_reward:.4f})")
             last_print_episode = episode
 
         if save_every is not None and (episode % save_every == 0 or episode == episodes+start_episode-1):
