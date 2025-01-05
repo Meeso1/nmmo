@@ -27,7 +27,8 @@ class SimplierInputAgentV2(AgentBase):
         action_loss_weights: dict[str, float] = None,
         lr_decay: float = 1.0,
         min_lr: float = 1e-6,
-        max_grad_norm: float = 0.5
+        max_grad_norm: float = 0.5,
+        sample_weights_softmin_temp: float = 1.0
     ) -> None:
         self.gamma = gamma
         self.epsilon = epsilon
@@ -41,6 +42,7 @@ class SimplierInputAgentV2(AgentBase):
         self.lr_decay = lr_decay
         self.min_lr = min_lr
         self.max_grad_norm = max_grad_norm
+        self.softmin_temp = sample_weights_softmin_temp
 
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -112,6 +114,28 @@ class SimplierInputAgentV2(AgentBase):
             )
         return actions
 
+    def _calculate_sample_weights(
+        self,
+        rewards: dict[int, list[float]]
+    ) -> list[float]:
+        agent_total_rewards = {
+            agent_id: sum(rewards[agent_id])
+            for agent_id in rewards.keys()
+        }
+
+        # Normalize agent weights using softmin
+        total_rewards = np.array(list(agent_total_rewards.values()))
+        agent_weights = np.exp(-self.softmin_temp * (total_rewards - np.max(total_rewards)))
+        agent_weights *= len(agent_weights) / np.sum(agent_weights)
+        agent_weights = dict(zip(agent_total_rewards.keys(), agent_weights))
+
+        # Create weight list with repeated weights for each timestep
+        all_weights = []
+        for agent_id, rewards in rewards.items():
+            all_weights.extend([agent_weights[agent_id]] * len(rewards))
+        
+        return all_weights
+
     def update(
         self,
         states: dict[int, list[Observations]],
@@ -127,7 +151,7 @@ class SimplierInputAgentV2(AgentBase):
         
         self.network.train()
         
-        # Normalize weights
+        # Normalize action weights
         action_weights = {name: self.action_loss_weights.get(name, 1.0) 
                           for name in SimplierNetwork.action_types()}
         total_weight = sum(action_weights.values())
@@ -148,10 +172,14 @@ class SimplierInputAgentV2(AgentBase):
                 all_actions[type].extend([actions_in_step[type] for actions_in_step in actions[agent_id]])
                 all_old_log_probs[type].extend([log_probs_in_step[type] for log_probs_in_step in log_probs[agent_id]])
 
+        # Calculate sample weights
+        all_weights = self._calculate_sample_weights(rewards)
+
         network_inputs = [observations_to_inputs_simplier(obs, self.device) for obs in all_states]
         stacked_inputs = [torch.cat([inputs[i] for inputs in network_inputs], dim=0) for i in range(len(network_inputs[0]))]
 
         returns_tensor = torch.FloatTensor(all_returns).to(self.device)
+        weights_tensor = torch.FloatTensor(all_weights).to(self.device)
         action_tensors = {name: torch.cat(acts, dim=0).to(self.device) for name, acts in all_actions.items()}
         old_log_prob_tensors = {name: torch.cat(lps, dim=0).to(self.device) for name, lps in all_old_log_probs.items()}
 
@@ -204,12 +232,14 @@ class SimplierInputAgentV2(AgentBase):
                     entropy_loss = -self.entropy_loss_coef * entropy
                     action_loss = -torch.min(surr1, surr2) + entropy_loss
                     
-                    actor_loss += action_weights[type] * action_loss.mean()
+                    weighted_action_loss = action_loss * weights_tensor[batch_indices]
+                    actor_loss += action_weights[type] * weighted_action_loss.mean()
                     
                     # Save losses for history
                     epoch_actor_losses[batch_indices] += action_weights[type] * action_loss.mean(dim=-1)
 
-                critic_loss: Tensor = 0.5 * torch.nn.MSELoss()(values.squeeze(dim=-1), batch_returns_tensor.detach())
+                critic_loss: Tensor = 0.5 * (weights_tensor[batch_indices] * 
+                    torch.nn.MSELoss(reduction='none')(values.squeeze(dim=-1), batch_returns_tensor.detach())).mean()
                 epoch_critic_losses[batch_indices] = 0.5 * (values.squeeze(dim=-1) - batch_returns_tensor.detach()).pow(2)
                 total_loss = actor_loss + self.critic_loss_coef * critic_loss
                 
@@ -246,7 +276,8 @@ class SimplierInputAgentV2(AgentBase):
             "action_loss_weights": self.action_loss_weights,
             "lr_decay": self.lr_decay,
             "min_lr": self.min_lr,
-            "max_grad_norm": self.max_grad_norm
+            "max_grad_norm": self.max_grad_norm,
+            "sample_weights_softmin_temp": self.softmin_temp
         }
 
         jar.add(f"{agent_name}-params", constructor_params)
