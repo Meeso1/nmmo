@@ -208,3 +208,7 @@ class WeightedReward(CustomRewardBase):
             total_rewards[agent_id] /= weights_sum
         
         return total_rewards
+    
+    def reset(self) -> None:
+        for reward in self.rewards_with_weights.keys():
+            reward.reset()
