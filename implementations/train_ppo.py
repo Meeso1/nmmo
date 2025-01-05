@@ -150,7 +150,7 @@ def evaluate_agent(
 
             states, rewards, terminations, truncations, _ = env.step(env_actions)
             if custom_reward is not None:
-                rewards = custom_reward.get_rewards(observations, rewards, terminations, truncations)
+                rewards = custom_reward.get_rewards(step, observations, rewards, terminations, truncations)
             
             for callback in callbacks:
                 callback.step(observations, action_data, episode, step)
