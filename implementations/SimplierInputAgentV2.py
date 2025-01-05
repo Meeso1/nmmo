@@ -26,7 +26,8 @@ class SimplierInputAgentV2(AgentBase):
         normalize_advantages: bool = True,
         action_loss_weights: dict[str, float] = None,
         lr_decay: float = 1.0,
-        min_lr: float = 1e-6
+        min_lr: float = 1e-6,
+        max_grad_norm: float = 0.5
     ) -> None:
         self.gamma = gamma
         self.epsilon = epsilon
@@ -39,6 +40,7 @@ class SimplierInputAgentV2(AgentBase):
         self.action_loss_weights = action_loss_weights or {}
         self.lr_decay = lr_decay
         self.min_lr = min_lr
+        self.max_grad_norm = max_grad_norm
 
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -213,6 +215,7 @@ class SimplierInputAgentV2(AgentBase):
                 
                 self.optimizer.zero_grad()
                 total_loss.backward()
+                torch.nn.utils.clip_grad_norm_(self.network.parameters(), self.max_grad_norm)
                 self.optimizer.step()
 
             actor_losses.append(epoch_actor_losses.mean().item())
@@ -242,7 +245,8 @@ class SimplierInputAgentV2(AgentBase):
             "normalize_advantages": self.normalize_advantages,
             "action_loss_weights": self.action_loss_weights,
             "lr_decay": self.lr_decay,
-            "min_lr": self.min_lr
+            "min_lr": self.min_lr,
+            "max_grad_norm": self.max_grad_norm
         }
 
         jar.add(f"{agent_name}-params", constructor_params)
