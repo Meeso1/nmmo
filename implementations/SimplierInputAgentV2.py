@@ -1,5 +1,6 @@
 import torch
 from torch import optim
+from torch.optim.lr_scheduler import LambdaLR
 import numpy as np
 from torch import Tensor
 from torch.distributions import Distribution
@@ -23,7 +24,9 @@ class SimplierInputAgentV2(AgentBase):
         epochs: int = 10,
         batch_size: int = 64,
         normalize_advantages: bool = True,
-        action_loss_weights: dict[str, float] = None
+        action_loss_weights: dict[str, float] = None,
+        lr_decay: float = 1.0,
+        min_lr: float = 1e-6
     ) -> None:
         self.gamma = gamma
         self.epsilon = epsilon
@@ -34,11 +37,17 @@ class SimplierInputAgentV2(AgentBase):
         self.learning_rate = learning_rate
         self.normalize_advantages = normalize_advantages
         self.action_loss_weights = action_loss_weights or {}
+        self.lr_decay = lr_decay
+        self.min_lr = min_lr
 
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         self.network = SimplierNetwork().to(self.device)
         self.optimizer = optim.Adam(self.network.parameters(), lr=learning_rate)
+
+        self.scheduler = LambdaLR(self.optimizer, 
+                                  lambda epoch: max(lr_decay ** epoch, min_lr / learning_rate)) \
+                            if lr_decay < 1.0 else None
 
     @staticmethod
     def _get_attack_target_index(x: float, y: float, state: Observations) -> int:
@@ -209,7 +218,10 @@ class SimplierInputAgentV2(AgentBase):
             actor_losses.append(epoch_actor_losses.mean().item())
             critic_losses.append(epoch_critic_losses.mean().item())
             total_losses.append(epoch_actor_losses.mean().item() + epoch_critic_losses.mean().item())
-            
+        
+        if self.scheduler is not None:
+            self.scheduler.step()
+        
         return actor_losses, critic_losses, total_losses
     
     def _get_distributions(self, action_probs: dict[str, Tensor]) -> dict[str, Distribution]:
@@ -228,7 +240,9 @@ class SimplierInputAgentV2(AgentBase):
             "epochs": self.epochs,
             "batch_size": self.batch_size,
             "normalize_advantages": self.normalize_advantages,
-            "action_loss_weights": self.action_loss_weights
+            "action_loss_weights": self.action_loss_weights,
+            "lr_decay": self.lr_decay,
+            "min_lr": self.min_lr
         }
 
         jar.add(f"{agent_name}-params", constructor_params)
