@@ -17,6 +17,7 @@ class SimplierInputAgentV2(AgentBase):
     def __init__(
         self,
         learning_rate: float = 3e-4,
+        critic_learning_rate: float = 3e-4,
         gamma: float = 0.99,
         epsilon: float = 0.2,
         critic_loss_coef: float = 0.5,
@@ -26,7 +27,9 @@ class SimplierInputAgentV2(AgentBase):
         normalize_advantages: bool = True,
         action_loss_weights: dict[str, float] = None,
         lr_decay: float = 1.0,
+        critic_lr_decay: float = 1.0,
         min_lr: float = 1e-6,
+        critic_min_lr: float = 1e-6,
         max_grad_norm: float = 0.5,
         sample_weights_softmin_temp: float = 1.0
     ) -> None:
@@ -37,21 +40,36 @@ class SimplierInputAgentV2(AgentBase):
         self.epochs = epochs
         self.batch_size = batch_size
         self.learning_rate = learning_rate
+        self.critic_learning_rate = critic_learning_rate
         self.normalize_advantages = normalize_advantages
         self.action_loss_weights = action_loss_weights or {}
         self.lr_decay = lr_decay
+        self.critic_lr_decay = critic_lr_decay
         self.min_lr = min_lr
+        self.critic_min_lr = critic_min_lr
         self.max_grad_norm = max_grad_norm
         self.softmin_temp = sample_weights_softmin_temp
 
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         self.network = SimplierNetwork().to(self.device)
-        self.optimizer = optim.Adam(self.network.parameters(), lr=learning_rate)
+        actor_params, critic_params = self.network.get_actor_critic_params()
+        self.actor_optimizer = optim.Adam(actor_params, lr=learning_rate)
+        self.critic_optimizer = optim.Adam(critic_params, lr=critic_learning_rate)
+        
+        # Actor learning rate decay
+        if lr_decay < 1.0:
+            self.actor_scheduler = LambdaLR(self.actor_optimizer,
+            lambda epoch: max(lr_decay ** epoch, min_lr / learning_rate))
+        else:
+            self.actor_scheduler = None
 
-        self.scheduler = LambdaLR(self.optimizer, 
-                                  lambda epoch: max(lr_decay ** epoch, min_lr / learning_rate)) \
-                            if lr_decay < 1.0 else None
+        # Critic learning rate decay
+        if critic_lr_decay < 1.0:
+            self.critic_scheduler = LambdaLR(self.critic_optimizer,
+            lambda epoch: max(critic_lr_decay ** epoch, critic_min_lr / critic_learning_rate))
+        else:
+            self.critic_scheduler = None
 
     @staticmethod
     def _get_attack_target_index(x: float, y: float, state: Observations) -> int:
@@ -243,17 +261,21 @@ class SimplierInputAgentV2(AgentBase):
                 epoch_critic_losses[batch_indices] = 0.5 * (values.squeeze(dim=-1) - batch_returns_tensor.detach()).pow(2)
                 total_loss = actor_loss + self.critic_loss_coef * critic_loss
                 
-                self.optimizer.zero_grad()
+                self.actor_optimizer.zero_grad()
+                self.critic_optimizer.zero_grad()
                 total_loss.backward()
                 torch.nn.utils.clip_grad_norm_(self.network.parameters(), self.max_grad_norm)
-                self.optimizer.step()
+                self.actor_optimizer.step()
+                self.critic_optimizer.step()
 
             actor_losses.append(epoch_actor_losses.mean().item())
             critic_losses.append(epoch_critic_losses.mean().item())
             total_losses.append(epoch_actor_losses.mean().item() + epoch_critic_losses.mean().item())
         
-        if self.scheduler is not None:
-            self.scheduler.step()
+        if self.actor_scheduler is not None:
+            self.actor_scheduler.step()
+        if self.critic_scheduler is not None:
+            self.critic_scheduler.step()
         
         return actor_losses, critic_losses, total_losses
     
@@ -266,6 +288,7 @@ class SimplierInputAgentV2(AgentBase):
 
         constructor_params = {
             "learning_rate": self.learning_rate,
+            "critic_learning_rate": self.critic_learning_rate,
             "gamma": self.gamma,
             "epsilon": self.epsilon,
             "critic_loss_coef": self.critic_loss_coef,
@@ -275,7 +298,9 @@ class SimplierInputAgentV2(AgentBase):
             "normalize_advantages": self.normalize_advantages,
             "action_loss_weights": self.action_loss_weights,
             "lr_decay": self.lr_decay,
+            "critic_lr_decay": self.critic_lr_decay,
             "min_lr": self.min_lr,
+            "critic_min_lr": self.critic_min_lr,
             "max_grad_norm": self.max_grad_norm,
             "sample_weights_softmin_temp": self.softmin_temp
         }

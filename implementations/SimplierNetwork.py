@@ -176,3 +176,25 @@ class SimplierNetwork(nn.Module):
         x_critic = self.critic_input(tile_data.clone(), self_data.clone())
         value = self.critic(x_critic)
         return action_probs, value
+
+    def get_actor_critic_params(self):
+        """Separates parameters into actor and critic groups"""
+        actor_components = [
+            self.input_network,
+            self.hidden_network,
+            self.action_heads
+        ]
+        critic_components = [
+            self.critic_input,
+            self.critic
+        ]
+
+        actor_params = []
+        critic_params = []
+
+        for component in actor_components:
+            actor_params.extend(component.parameters())
+        for component in critic_components:
+            critic_params.extend(component.parameters())
+
+        return actor_params, critic_params
