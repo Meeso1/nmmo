@@ -212,3 +212,35 @@ class WeightedReward(CustomRewardBase):
     def reset(self) -> None:
         for reward in self.rewards_with_weights.keys():
             reward.reset()
+
+
+class ShiftingReward(CustomRewardBase):
+    def __init__(self, initial_reward: CustomRewardBase, final_reward: CustomRewardBase, shift_episodes: int) -> None:
+        self.initial_reward = initial_reward
+        self.final_reward = final_reward
+        self.shift_episodes = shift_episodes
+        self.episode = 0
+        
+    def get_rewards(
+        self, 
+        step: int,
+        observations_per_agent: dict[int, Observations], 
+        rewards: dict[int, float],
+        terminations: dict[int, bool], 
+        truncations: dict[int, bool]
+    ) -> dict[int, float]:
+        # Linearly shift from initial to final reward over shift_episodes episodes
+        alpha = min(1, self.episode / self.shift_episodes)
+        return {
+            agent_id: (1 - alpha) * self.initial_reward.get_rewards(step, observations_per_agent, rewards, terminations, truncations)[agent_id] +
+                       alpha * self.final_reward.get_rewards(step, observations_per_agent, rewards, terminations, truncations)[agent_id]
+            for agent_id in rewards.keys()
+        }
+    
+    def reset(self) -> None:
+        self.episode += 1
+        self.initial_reward.reset()
+        self.final_reward.reset()
+        
+    def clear(self) -> None:
+        self.episode = 0
