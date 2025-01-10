@@ -87,20 +87,24 @@ class AnimationCallback(EvaluationCallback):
             color_grid[r - min_row, c - min_col] = hex_to_rgb(self.tile_color_map[index_to_material[v]])
         return color_grid
 
-    def _get_action_text(self, action_data: ActionData) -> str:
+    def _get_action_text(self, action_data: ActionData, entity_ids: np.ndarray) -> str:
         if not action_data:
             return "No action"
         
         action_parts = []
         if 'Move' in action_data.action_dict and 'Direction' in action_data.action_dict['Move']:
             probability = action_data.distributions["Move"].probs[0, action_data.action_dict['Move']['Direction']]
-            action_parts.append(f"Move: Direction {action_data.action_dict['Move']['Direction']} ({(probability * 100):.2f}%)")
+            direction_name = {
+                0: 'Up', 1: 'Down', 2: 'Right', 3: 'Left', 4: 'Stay'
+            }[action_data.action_dict['Move']['Direction']]
+            action_parts.append(f"Move: {direction_name} ({(probability * 100):.2f}%)")
         if 'Attack' in action_data.action_dict:
             attack = action_data.action_dict['Attack']
             if 'Style' in attack and 'Target' in attack:
                 style_prob = action_data.distributions["AttackStyle"].probs[0, attack['Style']]
                 attack_or_not_prob = action_data.distributions["AttackOrNot"].probs[0, 1 if attack['Target'] != 100 else 0]
-                action_parts.append(f"Attack: Style {attack['Style']} ({(style_prob * 100):.2f}%), Target {attack['Target']} ({(attack_or_not_prob * 100):.2f}%)")
+                target_id = entity_ids[attack["Target"]] if attack['Target'] != 100 else "None" 
+                action_parts.append(f"Attack: Style {attack['Style']} ({(style_prob * 100):.2f}%), Target {target_id} ({(attack_or_not_prob * 100):.2f}%)")
         if 'Use' in action_data.action_dict and 'InventoryItem' in action_data.action_dict['Use']:
             action_parts.append(f"Use: Item {action_data.action_dict['Use']['InventoryItem']}")
         if 'Destroy' in action_data.action_dict and 'InventoryItem' in action_data.action_dict['Destroy']:
@@ -185,7 +189,7 @@ class AnimationCallback(EvaluationCallback):
         agent_stats = f"Health: {agent_health:>3}\n" + \
                       f"Food:   {agent_food:>3}\n" + \
                       f"Water:  {agent_water:>3}"
-        action_text = self._get_action_text(env_actions.get(agent_id))
+        action_text = self._get_action_text(env_actions.get(agent_id), agent_observations.entities.id)
         
         ax.text(0.05, 0.05, f"Action:\n{action_text}", transform=ax.transAxes, fontsize=12,
                 verticalalignment='bottom', horizontalalignment='left', color='black',
