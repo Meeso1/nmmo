@@ -23,7 +23,8 @@ class SavingCallback(EvaluationCallback):
             dict[int, float],                              # Rewards per agent
             tuple[list[float], list[float], list[float]],  # Losses
             dict[int, int],                                # Lifetimes
-            list[dict[int, dict[str, float]]]              # Entropies (per step -> per agent -> per action type)
+            list[dict[int, dict[str, float]]],             # Entropies (per step -> per agent -> per action type)
+            list[list[dict[int, float]] | None]            # Evaluation rewards (None in episodes without evaluation)
             ]] = []
         self.current_episode_obs_and_actions: list[tuple[dict[int, dict], dict[int, dict]]] = []
         self.current_episode_entropies: list[dict[int, dict[str, float]]] = []
@@ -78,14 +79,16 @@ class SavingCallback(EvaluationCallback):
         self, 
         episode: int, 
         rewards_per_agent: dict[int, float],
-        losses: tuple[list[float], list[float], list[float]]
+        losses: tuple[list[float], list[float], list[float]],
+        eval_rewards: list[dict[int, float]] | None
     ) -> None:
         self.episodes.append((
             self.current_episode_obs_and_actions, 
             rewards_per_agent, 
             losses, 
             self.lifetimes_per_agent,
-            self.current_episode_entropies))
+            self.current_episode_entropies,
+            eval_rewards))
         self.current_episode_obs_and_actions = []
         self.current_episode_entropies = []
         self.lifetimes_per_agent = {}

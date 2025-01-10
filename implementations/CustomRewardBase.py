@@ -17,10 +17,22 @@ class CustomRewardBase(ABC):
         pass
     
     @abstractmethod
-    def episode_end(self) -> None:
+    def clear_episode(self) -> None:
+        """
+        Clear any episode-specific state that the reward might have
+        """
+        pass
+    
+    def advance_episode(self) -> None:
+        """
+        Change reward state to the next episode (not called during evaluation)
+        """
         pass
     
     def reset(self) -> None:
+        """
+        Reset the reward to the initial state
+        """
         pass
     
 
@@ -41,7 +53,7 @@ class LifetimeReward(CustomRewardBase):
             for agent_id in rewards.keys()
         }
     
-    def episode_end(self) -> None:
+    def clear_episode(self) -> None:
         pass
     
     
@@ -72,7 +84,7 @@ class ResourcesReward(CustomRewardBase):
             for agent_id in rewards.keys()
         }
     
-    def episode_end(self) -> None:
+    def clear_episode(self) -> None:
         pass
 
 
@@ -144,7 +156,7 @@ class ResourcesAndGatheringReward(CustomRewardBase):
             for agent_id in rewards.keys()
         }
     
-    def episode_end(self) -> None:
+    def clear_episode(self) -> None:
         self.last_water = {}
         self.last_food = {}
 
@@ -202,7 +214,7 @@ class ExplorationReward(CustomRewardBase):
         
         return exploration_rewards
 
-    def episode_end(self) -> None:
+    def clear_episode(self) -> None:
         self.seen_tiles = {}
 
 
@@ -231,9 +243,9 @@ class WeightedReward(CustomRewardBase):
         
         return total_rewards
     
-    def episode_end(self) -> None:
+    def clear_episode(self) -> None:
         for reward in self.rewards_with_weights.keys():
-            reward.episode_end()
+            reward.clear_episode()
 
 
 class ShiftingReward(CustomRewardBase):
@@ -259,10 +271,12 @@ class ShiftingReward(CustomRewardBase):
             for agent_id in rewards.keys()
         }
     
-    def episode_end(self) -> None:
+    def clear_episode(self) -> None:
+        self.initial_reward.clear_episode()
+        self.final_reward.clear_episode()
+        
+    def advance_episode(self) -> None:
         self.episode += 1
-        self.initial_reward.episode_end()
-        self.final_reward.episode_end()
         
     def reset(self) -> None:
         self.episode = 0

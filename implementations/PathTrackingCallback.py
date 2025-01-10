@@ -36,7 +36,9 @@ class PathTrackingCallback(EvaluationCallback):
         self, 
         episode: int, 
         rewards_per_agent: dict[int, float],
-        losses: tuple[list[float], list[float], list[float]]) -> None:
+        losses: tuple[list[float], list[float], list[float]],
+        eval_rewards: list[dict[int, float]] | None
+    ) -> None:
         self.paths_per_episode[episode] = self.current_episode_paths
         self.current_episode_paths = {}
         

@@ -71,16 +71,16 @@ class ProgressiveReward(CustomRewardBase):
 
         return total_rewards
 
-    def episode_end(self) -> None:
-        """Called after each episode"""
-        self.update_weights()
-        
+    def clear_episode(self) -> None:
         for reward in self.rewards:
-            reward.episode_end()
+            reward.clear_episode()
+            
+    def advance_episode(self):
+        self.update_weights()
 
     def reset(self) -> None:
         """Reset progress and history"""
-        self.episode_end()
+        self.clear_episode()
         self.weights = np.zeros(len(self.rewards))
         self.weights[0] = 1.0
         self.reward_history = {i: [] for i in range(len(self.rewards))}

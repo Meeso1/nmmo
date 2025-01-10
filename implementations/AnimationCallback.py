@@ -241,7 +241,8 @@ class AnimationCallback(EvaluationCallback):
         self, 
         episode: int, 
         rewards_per_agent: dict[int, float], 
-        losses: tuple[list[float], list[float], list[float]]
+        losses: tuple[list[float], list[float], list[float]],
+        eval_rewards: list[dict[int, float]] | None
     )-> None:
         self.create_animation(f"{self._plots_dir}/animations/{self.output_name}_{episode}_{int(time.time())}.gif", fps=2)
         if os.path.exists(self._image_dir):

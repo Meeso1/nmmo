@@ -53,5 +53,5 @@ class StayNearResourcesReward(CustomRewardBase):
         
         return new_rewards              
             
-    def episode_end(self) -> None:
+    def clear_episode(self) -> None:
         pass

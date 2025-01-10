@@ -72,7 +72,13 @@ def get_avg_lifetime_for_random_agent(config: config.Default, *, retries: int = 
             for agent_id in observations_per_agent.keys():
                 self.current_lifetimes[agent_id] += 1
                 
-        def episode_end(self, episode: int, rewards_per_agent: dict[int, float], losses: tuple[list[float], list[float], list[float]]) -> None:
+        def episode_end(
+            self, 
+            episode: int, 
+            rewards_per_agent: dict[int, float], 
+            losses: tuple[list[float], list[float], list[float]],
+            eval_rewards: list[dict[int, float]] | None
+        ) -> None:
             self.avg_lifetimes.append(np.mean(list(self.current_lifetimes.values())))
             self.current_lifetimes = {}
             
@@ -92,28 +98,12 @@ def get_avg_lifetime_for_random_agent(config: config.Default, *, retries: int = 
                 
 
 def get_avg_reward_for_random_agent(config: config.Default, *, reward: CustomRewardBase | None = None, retries: int = 5) -> tuple[float, list[float]]:
-    class Callback(EvaluationCallback):
-        def __init__(self):
-            self.rewards = []
-
-        def episode_end(self, episode: int, rewards_per_agent: dict[int, float], losses: tuple[list[float], list[float], list[float]]) -> None:
-            all_rewards = np.array(list(rewards_per_agent.values()))
-            self.rewards.append(all_rewards.mean())
-            
-        def episode_start(self, episode: int) -> None:
-            pass
-        
-        def step(self, observations_per_agent: dict[int, Any], actions_per_agent: dict[int, ActionData], episode: int, step: int) -> None:
-            pass
-           
-    callback = Callback() 
-    evaluate_agent(
+    avg_rewards, _ = evaluate_agent(
         nmmo.Env(config),
         agent=RandomAgent(),
         episodes=retries,
         custom_reward=reward,
-        callbacks=[callback],
         quiet=True
     )
     
-    return np.array(callback.rewards).mean(), callback.rewards
+    return np.mean(avg_rewards), avg_rewards

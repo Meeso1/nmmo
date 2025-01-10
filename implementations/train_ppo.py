@@ -12,6 +12,8 @@ def train_ppo(
     episodes: int = 1000,
     print_every: int | None = 1,
     save_every: int | None = 100,
+    eval_every: int | None = None,
+    eval_episodes: int = 10,
     agent_name: str | None = None,
     start_episode: int = 1,
     custom_reward: CustomRewardBase | None = None,
@@ -33,7 +35,7 @@ def train_ppo(
             callback.episode_start(episode)
         
         if custom_reward is not None:
-            custom_reward.episode_end()
+            custom_reward.clear_episode()
 
         states, _ = env.reset()
         episode_data = {
@@ -89,9 +91,6 @@ def train_ppo(
             {aid: data['log_probs'] for aid, data in episode_data.items()},
             {aid: data['dones'] for aid, data in episode_data.items()}
         )
-        
-        for callback in callbacks:
-            callback.episode_end(episode, total_rewards, episode_losses)
 
         avg_reward = sum(total_rewards.values()) / len(total_rewards)
         avg_rewards.append(avg_reward)
@@ -111,6 +110,22 @@ def train_ppo(
 
         if save_every is not None and (episode % save_every == 0 or episode == episodes+start_episode-1):
             agent.save(f"{agent_name}_at_ep{episode}")
+            
+        all_eval_rewards = None
+        if eval_every is not None and (episode % eval_every == 0 or episode == episodes+start_episode-1):
+            avg_eval_rewards, all_eval_rewards = evaluate_agent(env, 
+                                                                agent, 
+                                                                episodes=eval_episodes, 
+                                                                custom_reward=custom_reward, 
+                                                                quiet=True, 
+                                                                reset_custom_reward=False)
+            print(f"Eval Reward: {sum(avg_eval_rewards) / len(avg_eval_rewards):.4f}")
+        
+        for callback in callbacks:
+            callback.episode_end(episode, total_rewards, episode_losses)
+            
+        if custom_reward is not None:
+            custom_reward.advance_episode()
 
 
 def evaluate_agent(
@@ -121,19 +136,21 @@ def evaluate_agent(
     custom_reward: CustomRewardBase | None = None,
     callbacks: list[EvaluationCallback] | None = None,
     quiet: bool = False,
-    sample_actions: bool = False
-) -> None:
+    sample_actions: bool = False,
+    reset_custom_reward: bool = True
+) -> tuple[list[float], list[dict[int, float]]]:
     if callbacks is None:
         callbacks = []
         
-    if custom_reward is not None:
+    if custom_reward is not None and reset_custom_reward:
         custom_reward.reset()
     
-    avg_rewards = []
+    avg_rewards: list[float] = []
+    all_rewards: list[dict[int, float]] = []
 
     for episode in range(1, episodes+1):
         if custom_reward is not None:
-            custom_reward.episode_end()
+            custom_reward.clear_episode()
         
         states, _ = env.reset()
         total_rewards: dict[int, float] = {agent_id: 0.0 for agent_id in env.agents}
@@ -170,8 +187,12 @@ def evaluate_agent(
         for callback in callbacks:
             callback.episode_end(episode, total_rewards, ([], [], []))
 
+        all_rewards.append(total_rewards)
+
         avg_reward = sum(total_rewards.values()) / len(total_rewards)
         avg_rewards.append(avg_reward)
         
         if not quiet:
             print(f"Episode {episode}, Average Reward: {avg_reward:.4f}")
+            
+    return avg_rewards, all_rewards
