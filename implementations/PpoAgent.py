@@ -16,7 +16,7 @@ from implementations.ActionData import ActionData
 
 class AgentBase(ABC):
     @abstractmethod
-    def get_actions(self, states: dict[int, Observations]) \
+    def get_actions(self, states: dict[int, Observations], return_most_probable: bool = False) \
         -> dict[int, ActionData]:
         pass
 
@@ -97,7 +97,8 @@ class PPOAgent(AgentBase):
 
     def get_actions(
         self,
-        states: dict[int, Observations]
+        states: dict[int, Observations], 
+        return_most_probable: bool = False
     ) -> dict[int, tuple[dict[str, dict[str, int]], dict[str, Tensor], dict[str, Tensor]]]:
         actions = {}
         
@@ -107,7 +108,9 @@ class PPOAgent(AgentBase):
             inputs = observations_to_network_inputs(observations, self.device)
             action_probs, _ = self.network(*inputs)
             distributions = self._get_distributions(action_probs)
-            agent_actions = {name: dist.sample() for name, dist in distributions.items()}
+            agent_actions = {name: dist.sample() for name, dist in distributions.items()} \
+                            if not return_most_probable \
+                            else {name: dist.mode.detach() for name, dist in distributions.items()}
             log_probs = {name: distributions[name].log_prob(action) for name, action in agent_actions.items()}
 
             # Get a single log prob value for each sample

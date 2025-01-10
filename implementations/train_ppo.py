@@ -117,7 +117,8 @@ def evaluate_agent(
     episodes: int = 10,
     custom_reward: CustomRewardBase | None = None,
     callbacks: list[EvaluationCallback] | None = None,
-    quiet: bool = False
+    quiet: bool = False,
+    sample_actions: bool = False
 ) -> None:
     if callbacks is None:
         callbacks = []
@@ -142,7 +143,7 @@ def evaluate_agent(
                 if agent_id in env.agents
             }
             
-            action_data = agent.get_actions(observations)
+            action_data = agent.get_actions(observations, return_most_probable=not sample_actions)
             env_actions = {
                 agent_id: action_data[agent_id].action_dict
                 for agent_id in env.agents

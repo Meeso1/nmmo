@@ -67,7 +67,8 @@ class SimplierInputAgent(AgentBase):
 
     def get_actions(
         self,
-        states: dict[int, Observations]
+        states: dict[int, Observations],
+        return_most_probable: bool = False
     ) -> dict[int, ActionData]:
         actions = {}
         
@@ -77,7 +78,9 @@ class SimplierInputAgent(AgentBase):
             inputs = observations_to_inputs_simplier(observations, self.device)
             action_probs, _ = self.network(*inputs)
             distributions = self._get_distributions(action_probs)
-            agent_actions = {name: dist.sample() for name, dist in distributions.items()}
+            agent_actions = {name: dist.sample() for name, dist in distributions.items()} \
+                            if not return_most_probable \
+                            else {name: dist.mode.detach() for name, dist in distributions.items()}
             log_probs = {name: distributions[name].log_prob(action) for name, action in agent_actions.items()}
 
             # Get a single log prob value for each sample

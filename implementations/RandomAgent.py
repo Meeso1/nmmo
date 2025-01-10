@@ -21,7 +21,8 @@ class RandomAgent(AgentBase):
 
     def get_actions(
         self,
-        states: dict[int, Observations]
+        states: dict[int, Observations],
+        return_most_probable: bool = False
     ) -> dict[int, ActionData]:
         actions = {}
         for agent_id, obs in states.items():

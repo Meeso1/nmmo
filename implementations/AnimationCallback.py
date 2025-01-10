@@ -103,7 +103,10 @@ class AnimationCallback(EvaluationCallback):
             if 'Style' in attack and 'Target' in attack:
                 style_prob = action_data.distributions["AttackStyle"].probs[0, attack['Style']]
                 attack_or_not_prob = action_data.distributions["AttackOrNot"].probs[0, 1 if attack['Target'] != 100 else 0]
-                target_id = entity_ids[attack["Target"]] if attack['Target'] != 100 else "None" 
+                sees_valid_target = np.sum(entity_ids < 0) > 0
+                target_id = entity_ids[attack["Target"]] if attack['Target'] != 100 \
+                            else "None" if sees_valid_target \
+                            else "----"
                 action_parts.append(f"Attack: Style {attack['Style']} ({(style_prob * 100):.2f}%), Target {target_id} ({(attack_or_not_prob * 100):.2f}%)")
         if 'Use' in action_data.action_dict and 'InventoryItem' in action_data.action_dict['Use']:
             action_parts.append(f"Use: Item {action_data.action_dict['Use']['InventoryItem']}")

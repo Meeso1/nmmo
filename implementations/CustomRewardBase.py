@@ -74,9 +74,15 @@ class ResourcesReward(CustomRewardBase):
 
 
 class ResourcesAndGatheringReward(CustomRewardBase):
-    def __init__(self, max_lifetime: int, gathering_bonus: int = 10) -> None:
+    def __init__(
+        self, 
+        max_lifetime: int, 
+        gathering_bonus: int = 10, 
+        scale_with_resource_change: bool = False
+    ) -> None:
         self.max_lifetime = max_lifetime
         self.gathering_bonus = gathering_bonus
+        self.scale_with_resource_change = scale_with_resource_change
         self.last_water = {}
         self.last_food = {}
     
@@ -95,10 +101,16 @@ class ResourcesAndGatheringReward(CustomRewardBase):
             
         gathering_reward = 0
         if water > self.last_water[agent_id] and self.last_water[agent_id] < self.last_food[agent_id]:
-            gathering_reward = self.gathering_bonus
+            if self.scale_with_resource_change:
+                gathering_reward += (water - self.last_water[agent_id]) / 100 * self.gathering_bonus
+            else:
+                gathering_reward = self.gathering_bonus
             
         if food > self.last_food[agent_id] and self.last_food[agent_id] < self.last_water[agent_id]:
-            gathering_reward = self.gathering_bonus
+            if self.scale_with_resource_change:
+                gathering_reward += (food - self.last_food[agent_id]) / 100 * self.gathering_bonus
+            else:
+                gathering_reward = self.gathering_bonus
             
         self.last_water[agent_id] = water
         self.last_food[agent_id] = food
@@ -106,7 +118,14 @@ class ResourcesAndGatheringReward(CustomRewardBase):
         reward = 0 if hp == 0 else max(gathering_reward, resources_reward)
         
         # Normalize so that max total reward is ~1 (assuming that ideally agent gets bonus every 3 steps)
-        return reward / (1 + (self.gathering_bonus - 1) / 3) if self.gathering_bonus > 1 else reward
+        if not self.scale_with_resource_change:
+            normalization_factor = 1 + (self.gathering_bonus - 1) / 3 if self.gathering_bonus > 1 else 1
+        else:
+            water_loss_per_step = 5
+            food_loss_per_step = 5
+            normalization_factor = 1 + (water_loss_per_step + food_loss_per_step) / 100 * self.gathering_bonus
+
+        return reward / normalization_factor
     
     def get_rewards(
         self, 
@@ -115,7 +134,7 @@ class ResourcesAndGatheringReward(CustomRewardBase):
         rewards: dict[int, float],
         terminations: dict[int, bool], 
         truncations: dict[int, bool]
-        ) -> dict[int, float]:
+    ) -> dict[int, float]:
         return {
             agent_id: (0 if (terminations[agent_id] or truncations[agent_id]) 
                        else self._get_resources_reward(agent_id, observations_per_agent[agent_id]) / self.max_lifetime)
