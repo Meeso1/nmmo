@@ -17,6 +17,9 @@ class CustomRewardBase(ABC):
         pass
     
     @abstractmethod
+    def episode_end(self) -> None:
+        pass
+    
     def reset(self) -> None:
         pass
     
@@ -38,7 +41,7 @@ class LifetimeReward(CustomRewardBase):
             for agent_id in rewards.keys()
         }
     
-    def reset(self) -> None:
+    def episode_end(self) -> None:
         pass
     
     
@@ -69,7 +72,7 @@ class ResourcesReward(CustomRewardBase):
             for agent_id in rewards.keys()
         }
     
-    def reset(self) -> None:
+    def episode_end(self) -> None:
         pass
 
 
@@ -141,7 +144,7 @@ class ResourcesAndGatheringReward(CustomRewardBase):
             for agent_id in rewards.keys()
         }
     
-    def reset(self) -> None:
+    def episode_end(self) -> None:
         self.last_water = {}
         self.last_food = {}
 
@@ -199,7 +202,7 @@ class ExplorationReward(CustomRewardBase):
         
         return exploration_rewards
 
-    def reset(self) -> None:
+    def episode_end(self) -> None:
         self.seen_tiles = {}
 
 
@@ -228,9 +231,9 @@ class WeightedReward(CustomRewardBase):
         
         return total_rewards
     
-    def reset(self) -> None:
+    def episode_end(self) -> None:
         for reward in self.rewards_with_weights.keys():
-            reward.reset()
+            reward.episode_end()
 
 
 class ShiftingReward(CustomRewardBase):
@@ -256,10 +259,10 @@ class ShiftingReward(CustomRewardBase):
             for agent_id in rewards.keys()
         }
     
-    def reset(self) -> None:
+    def episode_end(self) -> None:
         self.episode += 1
-        self.initial_reward.reset()
-        self.final_reward.reset()
+        self.initial_reward.episode_end()
+        self.final_reward.episode_end()
         
-    def clear(self) -> None:
+    def reset(self) -> None:
         self.episode = 0

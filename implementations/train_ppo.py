@@ -20,6 +20,9 @@ def train_ppo(
     if callbacks is None:
         callbacks = []
     
+    if custom_reward is not None:
+        custom_reward.reset()
+    
     agent_name = agent_name or 'ppo_agent'
     avg_rewards = []
     last_print_episode = start_episode-1
@@ -30,7 +33,7 @@ def train_ppo(
             callback.episode_start(episode)
         
         if custom_reward is not None:
-            custom_reward.reset()
+            custom_reward.episode_end()
 
         states, _ = env.reset()
         episode_data = {
@@ -122,12 +125,15 @@ def evaluate_agent(
 ) -> None:
     if callbacks is None:
         callbacks = []
+        
+    if custom_reward is not None:
+        custom_reward.reset()
     
     avg_rewards = []
 
     for episode in range(1, episodes+1):
         if custom_reward is not None:
-            custom_reward.reset()
+            custom_reward.episode_end()
         
         states, _ = env.reset()
         total_rewards: dict[int, float] = {agent_id: 0.0 for agent_id in env.agents}
