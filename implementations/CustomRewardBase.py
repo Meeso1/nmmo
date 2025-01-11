@@ -205,7 +205,7 @@ class ExplorationReward(CustomRewardBase):
         terminations: dict[int, bool], 
         truncations: dict[int, bool]
         ) -> dict[int, float]:
-        if step == 0:
+        if step == 0 or self.seen_tiles == {}:
             for agent_id in observations_per_agent.keys():
                 self.seen_tiles[agent_id] = np.zeros((self.map_size, self.map_size), dtype=bool)
                 
@@ -334,4 +334,64 @@ class ShiftingReward(CustomRewardBase):
             "initial_reward": self.initial_reward.get_config(),
             "final_reward": self.final_reward.get_config(),
             "shift_episodes": self.shift_episodes
+        }
+
+class CurriculumReward(CustomRewardBase):
+    def __init__(
+        self, 
+        reward_stages: list[tuple[float, CustomRewardBase]],
+    ) -> None:
+        self.reward_stages = reward_stages
+        self.current_stage = 0
+        self.last_reward = 0
+
+    def _get_current_reward_function(self) -> CustomRewardBase:
+        return self.reward_stages[self.current_stage][1]
+
+    def get_rewards(
+        self, 
+        step: int,
+        observations_per_agent: dict[int, Observations], 
+        rewards: dict[int, float],
+        terminations: dict[int, bool], 
+        truncations: dict[int, bool]
+    ) -> dict[int, float]:
+        reward_function = self._get_current_reward_function()
+        calculated_rewards = reward_function.get_rewards(step, observations_per_agent, rewards, terminations, truncations)
+
+        self.last_reward = np.mean(list(calculated_rewards.values()))
+
+        if self.current_stage < len(self.reward_stages) - 1:
+            next_threshold = self.reward_stages[self.current_stage][0]
+            if self.last_reward >= next_threshold:
+                self.current_stage += 1
+                print(f"Switched reward to stage {self.current_stage} (last_reward = {self.last_reward} > {next_threshold})")
+                self.last_reward = 0
+
+        return calculated_rewards
+
+    def clear_episode(self) -> None:
+        for _, reward in self.reward_stages:
+            reward.clear_episode()
+
+    def advance_episode(self) -> None:
+        for _, reward in self.reward_stages:
+            reward.advance_episode()
+
+    def reset(self) -> None:
+        self.current_stage = 0
+        self.last_reward = 0
+        for _, reward in self.reward_stages:
+            reward.reset()
+
+    def get_config(self) -> dict:
+        return {
+            "name": "CurriculumReward",
+            "stages": [
+                {
+                    "reward_threshold": threshold,
+                    "config": reward.get_config()
+                }
+                for threshold, reward in self.reward_stages
+            ]
         }
