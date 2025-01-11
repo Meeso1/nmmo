@@ -85,3 +85,11 @@ class ProgressiveReward(CustomRewardBase):
         self.weights[0] = 1.0
         self.reward_history = {i: [] for i in range(len(self.rewards))}
         self.current_level = 0
+    
+    def get_config(self) -> dict:
+        return {
+            "name": "ProgressiveReward",
+            "rewards": [reward.get_config() for reward in self.rewards],
+            "window_size": self.window_size,
+            "alpha": self.alpha
+        }

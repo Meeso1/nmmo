@@ -35,6 +35,13 @@ class CustomRewardBase(ABC):
         """
         pass
     
+    @abstractmethod
+    def get_config(self) -> dict:
+        """
+        Return a dictionary with the configuration of the reward
+        """
+        pass
+    
 
 class LifetimeReward(CustomRewardBase):
     def __init__(self, max_lifetime: int) -> None:
@@ -55,6 +62,12 @@ class LifetimeReward(CustomRewardBase):
     
     def clear_episode(self) -> None:
         pass
+    
+    def get_config(self) -> dict:
+        return {
+            "name": "LifetimeReward",
+            "max_lifetime": self.max_lifetime
+        }
     
     
 class ResourcesReward(CustomRewardBase):
@@ -86,6 +99,12 @@ class ResourcesReward(CustomRewardBase):
     
     def clear_episode(self) -> None:
         pass
+    
+    def get_config(self) -> dict:
+        return {
+            "name": "ResourcesReward",
+            "max_lifetime": self.max_lifetime
+        }
 
 
 class ResourcesAndGatheringReward(CustomRewardBase):
@@ -159,6 +178,14 @@ class ResourcesAndGatheringReward(CustomRewardBase):
     def clear_episode(self) -> None:
         self.last_water = {}
         self.last_food = {}
+        
+    def get_config(self) -> dict:
+        return {
+            "name": "ResourcesAndGatheringReward",
+            "max_lifetime": self.max_lifetime,
+            "gathering_bonus": self.gathering_bonus,
+            "scale_with_resource_change": self.scale_with_resource_change
+        }
 
 
 class ExplorationReward(CustomRewardBase):
@@ -216,6 +243,14 @@ class ExplorationReward(CustomRewardBase):
 
     def clear_episode(self) -> None:
         self.seen_tiles = {}
+        
+    def get_config(self) -> dict:
+        return {
+            "name": "ExplorationReward",
+            "max_lifetime": self.max_lifetime,
+            "map_size": self.map_size,
+            "view_radius": self.view_radius
+        }
 
 
 class WeightedReward(CustomRewardBase):
@@ -246,6 +281,18 @@ class WeightedReward(CustomRewardBase):
     def clear_episode(self) -> None:
         for reward in self.rewards_with_weights.keys():
             reward.clear_episode()
+            
+    def get_config(self) -> dict:
+        return {
+            "name": "WeightedReward",
+            "rewards": [
+                { 
+                    "weight": weight, 
+                    "config": reward.get_config()
+                }
+                for reward, weight in self.rewards_with_weights.items()
+            ]
+        }
 
 
 class ShiftingReward(CustomRewardBase):
@@ -280,3 +327,11 @@ class ShiftingReward(CustomRewardBase):
         
     def reset(self) -> None:
         self.episode = 0
+        
+    def get_config(self) -> dict:
+        return {
+            "name": "ShiftingReward",
+            "initial_reward": self.initial_reward.get_config(),
+            "final_reward": self.final_reward.get_config(),
+            "shift_episodes": self.shift_episodes
+        }

@@ -55,3 +55,11 @@ class StayNearResourcesReward(CustomRewardBase):
             
     def clear_episode(self) -> None:
         pass
+    
+    def get_config(self) -> dict:
+        return {
+            "name": "StayNearResourcesReward",
+            "max_lifetime": self.max_lifetime,
+            "target_distance": self.target_distance,
+            "view_radius": self.view_radius
+        }

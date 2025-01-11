@@ -8,16 +8,18 @@ class SavingCallback(EvaluationCallback):
     def __init__(
         self, 
         name: str, 
-        saved_agent_ids: list[int], 
+        saved_agent_ids: list[int] | None = None, 
         append_to_existing: bool = False,
-        overwrite: bool = False
+        overwrite: bool = False,
+        reward_config: dict | None = None
     ) -> None:
         self.name = name
-        self.saved_agent_ids = saved_agent_ids
+        self.saved_agent_ids = saved_agent_ids if saved_agent_ids is not None else []
         self.append_to_existing = append_to_existing
         self.overwrite = overwrite
-        self.verified_existing = False
+        self.reward_config = reward_config
         
+        self.verified_existing = False
         self.episodes: list[tuple[
             list[tuple[dict[int, dict], dict[int, dict]]], # Observations per agent + actions per agent
             dict[int, float],                              # Rewards per agent
@@ -30,6 +32,7 @@ class SavingCallback(EvaluationCallback):
         self.current_episode_entropies: list[dict[int, dict[str, float]]] = []
         self.lifetimes_per_agent = {}
         self.jar = Jar("saves")
+        self.rewards_jar = Jar("saves/rewards")
         
     def _check_existing(self) -> None:
         exists = self.name in self.jar
@@ -41,7 +44,15 @@ class SavingCallback(EvaluationCallback):
                 raise ValueError(f"Save with name '{self.name}' already exists")
         else:
             if self.append_to_existing:
-                print(f"Save with name '{self.name}' does not exist - creating new save")           
+                print(f"Save with name '{self.name}' does not exist - creating new save")  
+                
+    def _save_rewards(self) -> None:
+        if self.reward_config is not None:
+            if self.overwrite:
+                self.rewards_jar.remove_all(self.name)
+                
+            # Ignore append_to_existing - both configs will be saved
+            self.rewards_jar.add(self.name, self.reward_config)         
 
     def step(
         self,
@@ -53,6 +64,7 @@ class SavingCallback(EvaluationCallback):
         if not self.verified_existing:
             self._check_existing()
             self.verified_existing = True
+            self._save_rewards()
         
         if step == 0:
             self.lifetimes_per_agent = {agent_id: 0 for agent_id in observations_per_agent.keys()}
