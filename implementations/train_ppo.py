@@ -122,7 +122,7 @@ def train_ppo(
             print(f"Eval Reward: {sum(avg_eval_rewards) / len(avg_eval_rewards):.4f}")
         
         for callback in callbacks:
-            callback.episode_end(episode, total_rewards, episode_losses)
+            callback.episode_end(episode, total_rewards, episode_losses, all_eval_rewards)
             
         if custom_reward is not None:
             custom_reward.advance_episode()
@@ -185,7 +185,7 @@ def evaluate_agent(
             step += 1
             
         for callback in callbacks:
-            callback.episode_end(episode, total_rewards, ([], [], []))
+            callback.episode_end(episode, total_rewards, ([], [], []), None)
 
         all_rewards.append(total_rewards)
 
