@@ -90,7 +90,7 @@ class SpawnTrackingCallback(EvaluationCallback):
         
         # Add correlation coefficient
         correlation = np.corrcoef(density_values, rewards)[0, 1]
-        plt.text(0.05, 0.95, f'Correlation: {correlation:.2f}', 
+        plt.text(0.80, 0.95, f'Correlation: {correlation:.2f}', 
                 transform=plt.gca().transAxes)
         
         plt.grid(True, alpha=0.3)

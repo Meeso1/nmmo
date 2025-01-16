@@ -22,11 +22,14 @@ def get_entropies_from_save(save_name: str) -> dict[str, list[float]]:
 
 def _show_or_save(save_as: str | None = None) -> None:
     if save_as:
-        os.makedirs("plots/plots", exist_ok=True)
+        directory = os.path.dirname(f"plots/plots/{save_as}")
+        if directory:
+            os.makedirs(directory, exist_ok=True)
         plt.savefig(f"plots/plots/{save_as}.png")
         plt.close()
     else:
         plt.show()
+
 
 def plot_losses(
     losses: list[tuple[list[float], list[float]]],
@@ -143,6 +146,11 @@ def compare_rewards(
     first_config, first_rewards = first_config_data
     second_config, second_rewards = second_config_data
     
+    # Clip configurations to same length
+    min_len = min(len(first_rewards), len(second_rewards))
+    first_rewards = first_rewards[:min_len]
+    second_rewards = second_rewards[:min_len]
+    
     # Calculate percentiles and means for first config
     avg_first_rewards = [np.mean([r for r in reward.values()]) for reward in first_rewards]
     top_10_first = [np.percentile([r for r in reward.values()], 90) for reward in first_rewards]
@@ -169,16 +177,32 @@ def compare_rewards(
             label=f"{second_config} Running Mean (window={window})", color='red')
     
     # Plot percentile lines with low alpha
-    ax.plot(range(window-1, len(first_rewards)), first_top_smooth, color='blue', alpha=0.1)
-    ax.plot(range(window-1, len(first_rewards)), first_bottom_smooth, color='blue', alpha=0.1)
-    ax.plot(range(window-1, len(second_rewards)), second_top_smooth, color='red', alpha=0.1)
-    ax.plot(range(window-1, len(second_rewards)), second_bottom_smooth, color='red', alpha=0.1)
+    ax.plot(range(window-1, len(first_rewards)), first_top_smooth, color='blue', alpha=0.2)
+    ax.plot(range(window-1, len(first_rewards)), first_bottom_smooth, color='blue', alpha=0.2)
+    ax.plot(range(window-1, len(second_rewards)), second_top_smooth, color='red', alpha=0.2)
+    ax.plot(range(window-1, len(second_rewards)), second_bottom_smooth, color='red', alpha=0.2)
     
     ax.set_xlabel("Episode")
     ax.set_ylabel("Reward")
     ax.set_title("Rewards Over Time")
     ax.legend()
     _show_or_save(save_as)
+
+
+def compare_rewards_from_saves(
+    save_name: tuple[str, str], 
+    reference_save_name: tuple[str, str], 
+    window: int = 50, 
+    save_as: str | None = None
+) -> None:
+    save_name, display_name = save_name
+    reference_save_name, reference_display_name = reference_save_name
+    
+    history = Jar("saves").get(save_name)
+    reference_history = Jar("saves").get(reference_save_name)
+    rewards = [episode[1] for episode in history]
+    reference_rewards = [episode[1] for episode in reference_history]
+    compare_rewards((display_name, rewards), (reference_display_name, reference_rewards), window, save_as)
 
 
 def plot_lifetimes(
@@ -224,6 +248,76 @@ def plot_lifetimes_from_save(
     history = Jar("saves").get(agent_name)
     lifetimes = [episode[3] for episode in history]
     plot_lifetimes(lifetimes, random_agent_lifetime, window, save_as)
+
+
+def compare_lifetimes(
+    first_config_data: tuple[str, list[dict[int, float]]],
+    second_config_data: tuple[str, list[dict[int, float]]],
+    window: int = 50,
+    save_as: str | None = None
+) -> None:
+    _, ax = plt.subplots(figsize=(10, 6))
+    first_config, first_lifetimes = first_config_data
+    second_config, second_lifetimes = second_config_data
+    
+    # Clip configurations to same length
+    min_len = min(len(first_lifetimes), len(second_lifetimes))
+    first_lifetimes = first_lifetimes[:min_len]
+    second_lifetimes = second_lifetimes[:min_len]
+    
+    # Calculate percentiles and means for first config
+    avg_first_lifetimes = [np.mean([r for r in lifetime.values()]) for lifetime in first_lifetimes]
+    top_10_first = [np.percentile([r for r in lifetime.values()], 90) for lifetime in first_lifetimes]
+    bottom_10_first = [np.percentile([r for r in lifetime.values()], 10) for lifetime in first_lifetimes]
+    
+    # Calculate percentiles and means for second config
+    avg_second_lifetimes = [np.mean([r for r in lifetime.values()]) for lifetime in second_lifetimes]
+    top_10_second = [np.percentile([r for r in lifetime.values()], 90) for lifetime in second_lifetimes]
+    bottom_10_second = [np.percentile([r for r in lifetime.values()], 10) for lifetime in second_lifetimes]
+    
+    # Calculate smoothed values
+    first_lifetimes_smooth = np.convolve(avg_first_lifetimes, np.ones(window)/window, mode='valid')
+    first_top_smooth = np.convolve(top_10_first, np.ones(window)/window, mode='valid')
+    first_bottom_smooth = np.convolve(bottom_10_first, np.ones(window)/window, mode='valid')
+    
+    second_lifetimes_smooth = np.convolve(avg_second_lifetimes, np.ones(window)/window, mode='valid')
+    second_top_smooth = np.convolve(top_10_second, np.ones(window)/window, mode='valid')
+    second_bottom_smooth = np.convolve(bottom_10_second, np.ones(window)/window, mode='valid')
+    
+    # Plot main lines
+    ax.plot(range(window-1, len(first_lifetimes)), first_lifetimes_smooth,
+            label=f"{first_config} Running Mean (window={window})", color='blue')
+    ax.plot(range(window-1, len(second_lifetimes)), second_lifetimes_smooth,
+            label=f"{second_config} Running Mean (window={window})", color='red')
+    
+    # Plot percentile lines with low alpha
+    ax.plot(range(window-1, len(first_lifetimes)), first_top_smooth, color='blue', alpha=0.2)
+    ax.plot(range(window-1, len(first_lifetimes)), first_bottom_smooth, color='blue', alpha=0.2)
+    ax.plot(range(window-1, len(second_lifetimes)), second_top_smooth, color='red', alpha=0.2)
+    ax.plot(range(window-1, len(second_lifetimes)), second_bottom_smooth, color='red', alpha=0.2)
+    
+    ax.set_xlabel("Episode")
+    ax.set_ylabel("Lifetime")
+    ax.set_title("Agent Lifetimes Over Time")
+    ax.legend()
+    _show_or_save(save_as)
+
+
+def compare_lifetimes_from_saves(
+    save_name: tuple[str, str], 
+    reference_save_name: tuple[str, str], 
+    window: int = 50, 
+    save_as: str | None = None
+) -> None:
+    
+    save_name, display_name = save_name
+    reference_save_name, reference_display_name = reference_save_name
+    
+    history = Jar("saves").get(save_name)
+    reference_history = Jar("saves").get(reference_save_name)
+    lifetimes = [episode[3] for episode in history]
+    reference_lifetimes = [episode[3] for episode in reference_history]
+    compare_lifetimes((display_name, lifetimes), (reference_display_name, reference_lifetimes), window, save_as)
 
 
 def plot_entropies(
