@@ -339,11 +339,11 @@ class ShiftingReward(CustomRewardBase):
 class CurriculumReward(CustomRewardBase):
     def __init__(
         self, 
-        reward_stages: list[tuple[float, CustomRewardBase]],
+        reward_stages: list[tuple[float, CustomRewardBase]]
     ) -> None:
         self.reward_stages = reward_stages
         self.current_stage = 0
-        self.last_reward = 0
+        self.running_rewards = []
 
     def _get_current_reward_function(self) -> CustomRewardBase:
         return self.reward_stages[self.current_stage][1]
@@ -356,17 +356,21 @@ class CurriculumReward(CustomRewardBase):
         terminations: dict[int, bool], 
         truncations: dict[int, bool]
     ) -> dict[int, float]:
+        if step == 0:
+            self.running_rewards = []
         reward_function = self._get_current_reward_function()
         calculated_rewards = reward_function.get_rewards(step, observations_per_agent, rewards, terminations, truncations)
 
-        self.last_reward = np.mean(list(calculated_rewards.values()))
+        self.running_rewards.append(np.mean(list(calculated_rewards.values())))
 
         if self.current_stage < len(self.reward_stages) - 1:
             next_threshold = self.reward_stages[self.current_stage][0]
-            if self.last_reward >= next_threshold:
+            running_avg = np.sum(list(self.running_rewards))
+
+            if running_avg >= next_threshold:
                 self.current_stage += 1
-                print(f"Switched reward to stage {self.current_stage} (last_reward = {self.last_reward} > {next_threshold})")
-                self.last_reward = 0
+                self.running_rewards = []
+                print(f"Switched reward to stage {self.current_stage}") # (total_reward = {running_avg:.4f} > {next_threshold})")
 
         return calculated_rewards
 
@@ -380,7 +384,7 @@ class CurriculumReward(CustomRewardBase):
 
     def reset(self) -> None:
         self.current_stage = 0
-        self.last_reward = 0
+        self.running_reward = 0
         for _, reward in self.reward_stages:
             reward.reset()
 
